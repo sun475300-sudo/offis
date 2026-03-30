@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2D Pixel Office - Multi-Agent Dashboard</title>
+  <link rel="stylesheet" href="/src/ui/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header / Status Panel -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🏢</span>
+        <span class="logo-text">PIXEL OFFICE</span>
+        <span class="logo-badge">MAS Dashboard</span>
+      </div>
+      <div class="header-stats">
+        <div class="stat">
+          <span class="stat-label">AGENTS</span>
+          <span class="stat-value" id="stat-agents">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">IDLE</span>
+          <span class="stat-value" id="stat-idle">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">WORKING</span>
+          <span class="stat-value" id="stat-working">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">TASKS</span>
+          <span class="stat-value" id="stat-tasks">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">FPS</span>
+          <span class="stat-value" id="stat-fps">60</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="game-container">
+      <div id="game-canvas"></div>
+      
+      <!-- Agent Status Overlay -->
+      <div class="agent-status-panel" id="agent-panel">
+        <div class="panel-header">
+          <span>📋 Agent Status</span>
+          <button class="btn-minimize" id="btn-minimize-panel">−</button>
+        </div>
+        <div class="agent-list" id="agent-list">
+          <!-- Agent items will be populated dynamically -->
+        </div>
+      </div>
+
+      <!-- History Panel -->
+      <div class="history-panel" id="history-panel">
+        <div class="panel-header">
+          <span>📂 검수 기록</span>
+          <button class="btn-minimize" id="btn-minimize-history">−</button>
+        </div>
+        <div class="history-list" id="history-list">
+          <!-- History items will be populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="btn-zoom-in" title="Zoom In">+</button>
+        <button class="zoom-btn" id="btn-zoom-out" title="Zoom Out">−</button>
+        <button class="zoom-btn" id="btn-zoom-reset" title="Reset View">⟲</button>
+      </div>
+
+      <!-- Monitoring Dashboard -->
+      <div class="monitor-panel" id="monitor-panel">
+        <div class="panel-header">
+          <span>🖥️ 관제 모니터</span>
+          <button class="btn-minimize" id="btn-minimize-monitor">−</button>
+        </div>
+        <div class="monitor-content">
+          <div class="monitor-section">
+            <div class="monitor-label">시스템 상태</div>
+            <div class="monitor-row">
+              <span>에이전트:</span>
+              <span id="monitor-agents">32명 활성</span>
+            </div>
+            <div class="monitor-row">
+              <span>러너:</span>
+              <span id="monitor-runners">4대 대기</span>
+            </div>
+            <div class="monitor-row">
+              <span>작업 큐:</span>
+              <span id="monitor-tasks">0건</span>
+            </div>
+          </div>
+          <div class="monitor-section">
+            <div class="monitor-label">토론 상태</div>
+            <div class="monitor-row">
+              <span>활성 세션:</span>
+              <span id="monitor-debates">0건</span>
+            </div>
+            <div class="monitor-row">
+              <span>토큰 사용량:</span>
+              <span id="monitor-tokens">0</span>
+            </div>
+            <div class="monitor-row">
+              <span>턴 수:</span>
+              <span id="monitor-turns">0/3</span>
+            </div>
+          </div>
+          <div class="monitor-section">
+            <div class="monitor-label">CI/CD 루프</div>
+            <div class="monitor-row">
+              <span>실행 중:</span>
+              <span id="monitor-loops">0건</span>
+            </div>
+            <div class="monitor-row">
+              <span>성공률:</span>
+              <span id="monitor-success">100%</span>
+            </div>
+            <div class="monitor-row">
+              <span>평균 소요:</span>
+              <span id="monitor-avg-time">0s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard Shortcuts Hint -->
+      <div class="shortcuts-hint">
+        <span>WASD/Arrow: Pan</span>
+        <span>Scroll: Zoom</span>
+        <span>Drag: Move</span>
+      </div>
+
+      <!-- Repository Editor Panel -->
+      <div class="repo-editor-panel" id="repo-editor-panel">
+        <div class="repo-header">
+          <span class="repo-title" id="repo-title">📁 Attached Repository</span>
+          <div class="repo-actions">
+            <button class="repo-btn" id="btn-save-github" title="Save to GitHub">💾</button>
+            <button class="repo-btn" id="btn-download" title="Download">⬇️</button>
+            <button class="repo-btn" id="btn-refresh-repo" title="Refresh">🔄</button>
+            <button class="repo-btn" id="btn-close-repo" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="repo-token-row">
+          <input type="password" id="github-token" class="github-token-input" placeholder="GitHub Token (ghp_...) - For saving to GitHub">
+        </div>
+        <div class="repo-content">
+          <div class="file-tree" id="file-tree">
+            <div class="file-tree-empty">No repository attached</div>
+          </div>
+          <div class="code-editor">
+            <div class="editor-tabs" id="editor-tabs"></div>
+            <div class="editor-content">
+              <textarea class="code-textarea" id="code-textarea" placeholder="파일을 선택하세요..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- CLI Input Area -->
+    <footer class="cli-container">
+      <div class="cli-prompt">
+        <span class="prompt-symbol">❯</span>
+        <span class="prompt-user">user@office</span>
+        <span class="prompt-colon">:</span>
+        <span class="prompt-path">~</span>
+        <span class="prompt-dollar">$</span>
+      </div>
+      <div class="cli-input-wrapper">
+        <button class="btn-attach" id="btn-attach" title="파일/폴더 첨부 또는 GitHub URL">📎</button>
+        <input 
+          type="text" 
+          id="cli-input" 
+          class="cli-input" 
+          placeholder="명령어를 입력하세요 (예: 프론트엔드 개발자님 UI 작업 해주세요)"
+          autocomplete="off"
+          autofocus
+        >
+        <button class="btn-submit" id="btn-submit">▶</button>
+      </div>
+      <!-- Attached files display -->
+      <div class="attached-files" id="attached-files"></div>
+      <div class="cli-output" id="cli-output">
+        <!-- Command history will appear here -->
+      </div>
+      <!-- Hidden file input -->
+      <input type="file" id="file-input" multiple webkitdirectory style="display: none;">
+    </footer>
+  </div>
+
+  <!-- Templates -->
+  <template id="template-agent-item">
+    <div class="agent-item">
+      <div class="agent-avatar"></div>
+      <div class="agent-info">
+        <div class="agent-name"></div>
+        <div class="agent-role"></div>
+      </div>
+      <div class="agent-state"></div>
+    </div>
+  </template>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
