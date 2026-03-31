@@ -1,12 +1,14 @@
 import {
   EventType,
   IEventBus,
+  PipelineReport,
   TaskInfo,
   TaskStatus,
 } from '../types';
 import { AgentManager } from '../agent/AgentManager';
 import { LLMService, LLMServiceConfig } from '../services/LLMService';
 import { TaskService } from '../services/TaskService';
+import { PipelineSystem } from '../pipeline/PipelineSystem';
 
 /**
  * Central Orchestrator — the "brain" of the system.
@@ -18,6 +20,7 @@ import { TaskService } from '../services/TaskService';
 export class Orchestrator {
   private llmService: LLMService;
   private taskService: TaskService;
+  private pipelineSystem: PipelineSystem;
   private dispatchInterval: number | null = null;
 
   constructor(
@@ -27,6 +30,7 @@ export class Orchestrator {
   ) {
     this.llmService = new LLMService(llmConfig);
     this.taskService = new TaskService(eventBus);
+    this.pipelineSystem = new PipelineSystem(agentManager, eventBus);
     this.registerEventHandlers();
   }
 
@@ -36,7 +40,13 @@ export class Orchestrator {
 
     this.eventBus.emit(EventType.CommandReceived, { prompt: userPrompt });
 
-    // Step 1: Decompose via LLM
+    // Check if this command should use the CEO pipeline
+    if (this.shouldUsePipeline(userPrompt)) {
+      this.launchPipeline(userPrompt);
+      return;
+    }
+
+    // Standard flow: decompose via LLM
     const llmResponse = await this.llmService.decomposeTasks(userPrompt);
     console.log(`[Orchestrator] LLM decomposed into ${llmResponse.tasks.length} tasks`);
     console.log(`[Orchestrator] Reasoning: ${llmResponse.reasoning}`);
@@ -47,6 +57,35 @@ export class Orchestrator {
 
     // Step 3: Dispatch tasks to agents
     this.dispatchPendingTasks();
+  }
+
+  /**
+   * Launch a CEO-driven pipeline for complex, multi-stage tasks.
+   * CEO → Architect → Coder → Reviewer
+   */
+  launchPipeline(goal: string): void {
+    console.log(`[Orchestrator] Launching CEO pipeline for: "${goal}"`);
+    const pipeline = this.pipelineSystem.createPipeline(goal);
+    if (!pipeline) {
+      console.warn('[Orchestrator] Failed to create pipeline — falling back to standard dispatch');
+      this.llmService.decomposeTasks(goal).then(llmResponse => {
+        const tasks = this.taskService.createTasksFromDecomposition(llmResponse.tasks);
+        this.eventBus.emit(EventType.TasksParsed, { tasks, reasoning: llmResponse.reasoning });
+        this.dispatchPendingTasks();
+      });
+    }
+  }
+
+  /** Get the pipeline system for external access */
+  getPipelineSystem(): PipelineSystem {
+    return this.pipelineSystem;
+  }
+
+  /** Get pipeline reports */
+  getPipelineReports(): PipelineReport[] {
+    return this.pipelineSystem.getAllPipelines()
+      .map(p => this.pipelineSystem.generateReport(p.id))
+      .filter((r): r is PipelineReport => r !== null);
   }
 
   /** Try to assign all pending tasks to available agents */
@@ -99,6 +138,26 @@ export class Orchestrator {
     console.log(`[Orchestrator] Assigned "${task.description}" to ${agent.name} (${agent.role})`);
   }
 
+  /**
+   * Determine if a command is complex enough to warrant the full CEO pipeline.
+   * Keywords that trigger pipeline mode: multi-step projects, full features, optimization requests.
+   */
+  private shouldUsePipeline(prompt: string): boolean {
+    const pipelineKeywords = [
+      '파이프라인', 'pipeline', 'ceo',
+      '팀 구성', '팀을 구성', '에이전트 팀',
+      '프로젝트', 'project',
+      '최적화', 'optimize', 'optimization',
+      '전체 리뷰', 'full review',
+      '자동화', 'automate',
+      '설계부터', '기획부터',
+      '알고리즘 개선', '로직 고도화',
+      '풀스택', 'fullstack', 'full-stack',
+    ];
+    const lower = prompt.toLowerCase();
+    return pipelineKeywords.some(kw => lower.includes(kw));
+  }
+
   private registerEventHandlers(): void {
     // When a task completes, try to dispatch remaining pending tasks
     this.eventBus.on(EventType.TaskCompleted, (event) => {
@@ -114,6 +173,18 @@ export class Orchestrator {
       const payload = event.payload as { taskId: string };
       this.taskService.markFailed(payload.taskId);
       console.log(`[Orchestrator] Task ${payload.taskId} failed — will retry on next dispatch`);
+    });
+
+    // Log pipeline lifecycle events
+    this.eventBus.on(EventType.PipelineCompleted, (event) => {
+      const payload = event.payload as { pipelineId: string; goal: string; report: PipelineReport };
+      console.log(`[Orchestrator] Pipeline completed: ${payload.pipelineId}`);
+      console.log(`[Orchestrator] Report:`, payload.report);
+    });
+
+    this.eventBus.on(EventType.PipelineFailed, (event) => {
+      const payload = event.payload as { pipelineId: string; reason: string };
+      console.log(`[Orchestrator] Pipeline failed: ${payload.pipelineId} — ${payload.reason}`);
     });
   }
 }

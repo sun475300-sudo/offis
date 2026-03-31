@@ -130,4 +130,24 @@ export class AgentManager {
       this.addAgent(config);
     }
   }
+
+  /**
+   * Spawn the CEO pipeline team (CEO → Architect → Coder → Reviewer).
+   * These agents handle the PaperClip-style delegation workflow.
+   */
+  spawnPipelineTeam(): void {
+    const pipelineConfigs: AgentConfig[] = [
+      { id: 'ceo-1',  name: 'Director',  role: AgentRole.CEO,       homeDesk: { col: 13, row: 3 }, speed: 4.0, color: 0xFFD700 },
+      { id: 'arc-1',  name: 'Archie',    role: AgentRole.Architect, homeDesk: { col: 13, row: 5 }, speed: 3.0, color: 0xFF6B6B },
+      { id: 'cod-1',  name: 'Cody',      role: AgentRole.Coder,     homeDesk: { col: 13, row: 7 }, speed: 3.5, color: 0x51CF66 },
+      { id: 'rev-1',  name: 'Rex',       role: AgentRole.Reviewer,  homeDesk: { col: 13, row: 9 }, speed: 3.2, color: 0x845EF7 },
+    ];
+
+    for (const config of pipelineConfigs) {
+      // Only add if not already present
+      if (!this.agents.has(config.id)) {
+        this.addAgent(config);
+      }
+    }
+  }
 }

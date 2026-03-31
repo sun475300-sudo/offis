@@ -42,6 +42,9 @@ export enum AgentRole {
   Architect = 'architect',
   SecurityEngineer = 'security',
   PerformanceEngineer = 'performance',
+  CEO = 'ceo',
+  Coder = 'coder',
+  Reviewer = 'reviewer',
 }
 
 export enum AgentState {
@@ -121,6 +124,13 @@ export enum EventType {
   AgentStartedWork = 'agent:startedWork',
   AgentFinishedWork = 'agent:finishedWork',
   AgentPathBlocked = 'agent:pathBlocked',
+
+  // Pipeline events (CEO → Architect → Coder → Reviewer)
+  PipelineCreated = 'pipeline:created',
+  PipelineStageStarted = 'pipeline:stageStarted',
+  PipelineStageCompleted = 'pipeline:stageCompleted',
+  PipelineFailed = 'pipeline:failed',
+  PipelineCompleted = 'pipeline:completed',
 
   // System events
   TickUpdate = 'system:tick',
@@ -251,4 +261,54 @@ export interface ITilemap {
   setOccupant(col: number, row: number, agentId: string | null): void;
   gridToWorld(cell: GridCell): Vec2;
   worldToGrid(pos: Vec2): GridCell;
+}
+
+// --- Pipeline Types (CEO → Architect → Coder → Reviewer) ---
+
+export enum PipelineStage {
+  Planning = 'planning',       // CEO analyzes goal, defines team
+  Architecture = 'architecture', // Architect designs solution
+  Coding = 'coding',           // Coder implements the solution
+  Review = 'review',           // Reviewer inspects code quality
+  Complete = 'complete',
+  Failed = 'failed',
+}
+
+export interface PipelineTask {
+  id: string;
+  goal: string;                 // Original user goal/command
+  currentStage: PipelineStage;
+  stages: PipelineStageInfo[];
+  assignedAgents: {
+    ceo: string | null;
+    architect: string | null;
+    coder: string | null;
+    reviewer: string | null;
+  };
+  createdAt: number;
+  completedAt: number | null;
+}
+
+export interface PipelineStageInfo {
+  stage: PipelineStage;
+  agentId: string | null;
+  agentRole: AgentRole;
+  taskDescription: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  output: string;              // Result/artifact from this stage
+  startedAt: number | null;
+  completedAt: number | null;
+}
+
+export interface PipelineReport {
+  pipelineId: string;
+  goal: string;
+  stages: {
+    stage: PipelineStage;
+    agent: string;
+    output: string;
+    duration: number;
+  }[];
+  totalDuration: number;
+  success: boolean;
 }

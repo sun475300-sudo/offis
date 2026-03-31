@@ -223,6 +223,21 @@ export class LLMService {
       tasks.push({ agent: AgentRole.DevOps, task: this.extractTask(prompt, 'devops'), priority: TaskPriority.Normal });
     }
 
+    // Architecture keywords
+    if (this.matchAny(prompt, ['설계', '아키텍처', 'architecture', '구조', '모듈', '패턴'])) {
+      tasks.push({ agent: AgentRole.Architect, task: this.extractTask(prompt, 'architecture'), priority: TaskPriority.High });
+    }
+
+    // Code implementation keywords
+    if (this.matchAny(prompt, ['구현', '코딩', 'implement', 'coding', '스크립트', '작성'])) {
+      tasks.push({ agent: AgentRole.Coder, task: this.extractTask(prompt, 'coding'), priority: TaskPriority.Normal });
+    }
+
+    // Review keywords
+    if (this.matchAny(prompt, ['리뷰', 'review', '검토', '검증', '코드 리뷰', '품질'])) {
+      tasks.push({ agent: AgentRole.Reviewer, task: this.extractTask(prompt, 'review'), priority: TaskPriority.Normal });
+    }
+
     // Fallback: if nothing matched, assign to PM for analysis
     if (tasks.length === 0) {
       tasks.push({ agent: AgentRole.PM, task: `분석 필요: ${userPrompt}`, priority: TaskPriority.Normal });
@@ -248,6 +263,9 @@ export class LLMService {
       pm: '기획/관리 작업',
       qa: 'QA/테스트 작업',
       devops: 'DevOps 작업',
+      architecture: '설계/아키텍처 작업',
+      coding: '코드 구현 작업',
+      review: '코드 리뷰/검증 작업',
     };
     return `${domainLabels[domain] || domain}: ${prompt}`;
   }

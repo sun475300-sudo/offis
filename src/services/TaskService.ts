@@ -25,6 +25,10 @@ export class TaskService {
     [AgentRole.PM, [{ col: 17, row: 15 }, { col: 19, row: 15 }]],
     [AgentRole.QA, [{ col: 3, row: 11 }, { col: 5, row: 11 }]],
     [AgentRole.DevOps, [{ col: 9, row: 11 }, { col: 11, row: 11 }]],
+    [AgentRole.CEO, [{ col: 13, row: 3 }]],
+    [AgentRole.Architect, [{ col: 13, row: 5 }]],
+    [AgentRole.Coder, [{ col: 13, row: 7 }]],
+    [AgentRole.Reviewer, [{ col: 13, row: 9 }]],
   ]);
 
   constructor(private eventBus: IEventBus) {}
