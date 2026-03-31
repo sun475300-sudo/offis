@@ -1296,11 +1296,89 @@ class PixelOfficeApp {
     }
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Phase 1: Show speech bubbles for each agent
+      if (architect) {
+        const architectPos = architect.getPosition();
+        this.speechBubbleRenderer.addBubble(
+          'bubble-architect-1',
+          'review-architect',
+          '🔍 코드 구조를 분석 중입니다...',
+          architectPos,
+          0x9C27B0,
+          2000
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (security) {
+        const securityPos = security.getPosition();
+        this.speechBubbleRenderer.addBubble(
+          'bubble-security-1',
+          'review-security',
+          '🛡️ 보안 취약점을 검토 중입니다...',
+          securityPos,
+          0xF44336,
+          2000
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (performance) {
+        const performancePos = performance.getPosition();
+        this.speechBubbleRenderer.addBubble(
+          'bubble-performance-1',
+          'review-performance',
+          '⚡ 성능 최적화 포인트를 탐색 중입니다...',
+          performancePos,
+          0xFF9800,
+          2000
+        );
+      }
+
       this.logSystem('🔍 분석 작업 진행 중...', 'system');
 
       const report = await this.reviewService.runParallelReview(code);
       
+      // Phase 2: Show completion speech bubbles
+      if (architect) {
+        this.speechBubbleRenderer.addBubble(
+          'bubble-architect-done',
+          'review-architect',
+          `구조 분석 완료! (${report.architectureScore}점)`,
+          architect.getPosition(),
+          0x9C27B0,
+          3000
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (security) {
+        this.speechBubbleRenderer.addBubble(
+          'bubble-security-done',
+          'review-security',
+          `보안 검토 완료! (${report.bugsScore}점)`,
+          security.getPosition(),
+          0xF44336,
+          3000
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (performance) {
+        this.speechBubbleRenderer.addBubble(
+          'bubble-performance-done',
+          'review-performance',
+          `성능 분석 완료! (${report.performanceScore}점)`,
+          performance.getPosition(),
+          0xFF9800,
+          3000
+        );
+      }
+
       this.logSystem('✅ 검수 완료!', 'success');
       this.logSystem(`📊 종합 점수: ${report.totalScore}/100`, 'success');
       this.logSystem(`   - 🏗️ 아키텍처: ${report.architectureScore}/100`, 'system');
