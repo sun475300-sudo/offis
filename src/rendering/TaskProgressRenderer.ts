@@ -122,7 +122,8 @@ export class TaskProgressRenderer {
   }
 
   clearAll(): void {
-    for (const [id] of this.progressData) {
+    const keys = [...this.progressData.keys()];
+    for (const id of keys) {
       this.removeProgress(id);
     }
   }

@@ -9,6 +9,12 @@ export interface TimeSeriesData {
   value: number;
 }
 
+function escapeHtml(str: string): string {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 export class ChartRenderer {
   private container: HTMLElement | null = null;
   private charts: Map<string, HTMLElement> = new Map();
@@ -39,17 +45,17 @@ export class ChartRenderer {
       const height = (item.value / maxValue) * 100;
       barsHtml += `
         <div class="bar-item">
-          <div class="bar" style="height: ${height}%; background: ${item.color}">
-            <span class="bar-value">${item.value}</span>
+          <div class="bar" style="height: ${height}%; background: ${escapeHtml(item.color)}">
+            <span class="bar-value">${escapeHtml(String(item.value))}</span>
           </div>
-          <div class="bar-label">${item.label}</div>
+          <div class="bar-label">${escapeHtml(item.label)}</div>
         </div>
       `;
     }
 
     chart.innerHTML = `
       <div class="chart-header">
-        <span class="chart-title">${title}</span>
+        <span class="chart-title">${escapeHtml(title)}</span>
         <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
       </div>
       <div class="chart-body">
@@ -89,7 +95,7 @@ export class ChartRenderer {
 
     chart.innerHTML = `
       <div class="chart-header">
-        <span class="chart-title">${title}</span>
+        <span class="chart-title">${escapeHtml(title)}</span>
         <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
       </div>
       <div class="chart-body">
@@ -98,8 +104,8 @@ export class ChartRenderer {
           ${points}
         </svg>
         <div class="chart-labels">
-          <span>${data.length > 0 ? new Date(data[0].timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-          <span>${data.length > 0 ? new Date(data[data.length - 1].timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+          <span>${data.length > 0 ? escapeHtml(new Date(data[0].timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })) : ''}</span>
+          <span>${data.length > 0 ? escapeHtml(new Date(data[data.length - 1].timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })) : ''}</span>
         </div>
       </div>
     `;
@@ -138,8 +144,8 @@ export class ChartRenderer {
       const percent = Math.round((item.value / total) * 100);
       legendHtml += `
         <div class="pie-legend-item">
-          <span class="pie-legend-color" style="background: ${item.color}"></span>
-          <span class="pie-legend-label">${item.label}</span>
+          <span class="pie-legend-color" style="background: ${escapeHtml(item.color)}"></span>
+          <span class="pie-legend-label">${escapeHtml(item.label)}</span>
           <span class="pie-legend-value">${percent}%</span>
         </div>
       `;
@@ -147,7 +153,7 @@ export class ChartRenderer {
 
     chart.innerHTML = `
       <div class="chart-header">
-        <span class="chart-title">${title}</span>
+        <span class="chart-title">${escapeHtml(title)}</span>
         <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
       </div>
       <div class="chart-body pie-body">
@@ -191,7 +197,8 @@ export class ChartRenderer {
   }
 
   clearAll(): void {
-    for (const [id] of this.charts) {
+    const keys = [...this.charts.keys()];
+    for (const id of keys) {
       this.removeChart(id);
     }
   }

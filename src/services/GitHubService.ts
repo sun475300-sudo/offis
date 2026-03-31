@@ -114,7 +114,7 @@ export class GitHubService {
 
     const data = await response.json();
     if (data.content) {
-      return atob(data.content);
+      return new TextDecoder().decode(Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0)));
     }
     return '';
   }

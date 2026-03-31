@@ -32,6 +32,10 @@ const ROLE_ICONS: Record<string, string> = {
   pm: 'PM',
   qa: 'QA',
   devops: 'DO',
+  ceo: 'CE',
+  architect: 'AR',
+  coder: 'CD',
+  reviewer: 'RV',
 };
 
 export class AgentRenderer {
@@ -60,11 +64,17 @@ export class AgentRenderer {
     }
 
     // Remove visuals for agents that no longer exist
-    for (const [id, visual] of this.agentVisuals) {
+    const toRemove: string[] = [];
+    for (const [id] of this.agentVisuals) {
       if (!activeIds.has(id)) {
-        this.parentContainer.removeChild(visual.container);
-        this.agentVisuals.delete(id);
+        toRemove.push(id);
       }
+    }
+    for (const id of toRemove) {
+      const visual = this.agentVisuals.get(id)!;
+      this.parentContainer.removeChild(visual.container);
+      visual.container.destroy({ children: true });
+      this.agentVisuals.delete(id);
     }
   }
 
@@ -262,6 +272,10 @@ export class AgentRenderer {
       pm: 0xE57373,
       qa: 0xBA68C8,
       devops: 0x90A4AE,
+      ceo: 0xFFD700,
+      architect: 0x9C27B0,
+      coder: 0x00BCD4,
+      reviewer: 0xFF5722,
     };
     const bodyColor = roleColors[role] ?? 0xAAAAAA;
     gfx.beginFill(bodyColor);

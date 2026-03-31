@@ -1,4 +1,4 @@
-import { AgentSnapshot, GridCell, Vec2 } from '../types';
+import { AgentSnapshot, AgentState, GridCell, Vec2 } from '../types';
 
 /**
  * Local Avoidance System
@@ -48,7 +48,7 @@ export class LocalAvoidance {
    */
   getDynamicObstacles(agents: AgentSnapshot[], excludeId: string): GridCell[] {
     return agents
-      .filter(a => a.id !== excludeId && a.state !== 'idle')
+      .filter(a => a.id !== excludeId && a.state !== AgentState.Idle)
       .map(a => a.gridCell);
   }
 
@@ -58,7 +58,7 @@ export class LocalAvoidance {
    */
   shouldYield(agentA: AgentSnapshot, agentB: AgentSnapshot): boolean {
     // Lower ID yields (deterministic tie-breaking)
-    if (agentA.state !== 'moving' || agentB.state !== 'moving') return false;
+    if (agentA.state !== AgentState.Moving || agentB.state !== AgentState.Moving) return false;
 
     const dx = agentB.position.x - agentA.position.x;
     const dy = agentB.position.y - agentA.position.y;

@@ -1,6 +1,5 @@
 import {
   AgentRole,
-  AgentState,
   EventType,
   GridCell,
   IEventBus,
@@ -68,9 +67,9 @@ export class CollaborationSystem {
     const room = this.findAvailableRoom();
     if (!room) return null;
 
-    // Find matching idle/working agents (max 6 per meeting)
+    // Find matching idle agents (max 6 per meeting)
     const agents = this.agentManager.getAllAgents()
-      .filter(a => roleFilter.includes(a.role))
+      .filter(a => roleFilter.includes(a.role) && a.isIdle())
       .slice(0, 6);
 
     if (agents.length < 2) return null;
@@ -114,7 +113,8 @@ export class CollaborationSystem {
       });
     }
 
-    this.eventBus.emit(EventType.AgentStateChanged, {
+    // Emit a meeting-started event (using TaskCompleted as a general notification)
+    this.eventBus.emit(EventType.TaskCompleted, {
       meetingId,
       type: 'meeting_started',
       participants: participantIds,
@@ -198,17 +198,25 @@ export class CollaborationSystem {
   update(): void {
     const now = Date.now();
 
+    const expiredMeetings: string[] = [];
     for (const [id, meeting] of this.activeMeetings) {
       if (now - meeting.startedAt > meeting.duration * 1000) {
-        this.activeMeetings.delete(id);
+        expiredMeetings.push(id);
       }
     }
+    for (const id of expiredMeetings) {
+      this.activeMeetings.delete(id);
+    }
 
+    const completedPairs: string[] = [];
     for (const [id, session] of this.pairSessions) {
       const driver = this.agentManager.getAgent(session.driverId);
       if (driver && driver.isIdle()) {
-        this.pairSessions.delete(id);
+        completedPairs.push(id);
       }
+    }
+    for (const id of completedPairs) {
+      this.pairSessions.delete(id);
     }
   }
 

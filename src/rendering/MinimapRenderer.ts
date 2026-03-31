@@ -15,7 +15,6 @@ export class MinimapRenderer {
 
   private readonly minimapWidth: number;
   private readonly minimapHeight: number;
-  private readonly scale: number;
 
   private mapCols: number = 0;
   private mapRows: number = 0;
@@ -27,7 +26,6 @@ export class MinimapRenderer {
   ) {
     this.minimapWidth = minimapWidth;
     this.minimapHeight = minimapHeight;
-    this.scale = 1; // Will be computed on renderMap
 
     this.container = new PIXI.Container();
     this.container.sortableChildren = true;

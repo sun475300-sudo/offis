@@ -10,7 +10,6 @@ export class StatsChartRenderer {
   private visible: boolean = false;
 
   // Data tracking
-  private taskCompletionHistory: { time: number; count: number }[] = [];
   private agentStateHistory: Map<string, AgentState[]> = new Map();
   private lastUpdateTime: number = 0;
 
@@ -54,6 +53,9 @@ export class StatsChartRenderer {
   render(agents: AgentSnapshot[], completedTasks: number, totalTasks: number): void {
     if (!this.visible) return;
 
+    for (const child of this.container.children) {
+      child.destroy({ children: true });
+    }
     this.container.removeChildren();
 
     // Background panel

@@ -15,7 +15,7 @@ export class ChatSystem {
 
   sendMessage(senderId: string, senderName: string, senderRole: string, content: string, type: 'text' | 'system' | 'debate' = 'text'): void {
     const message: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       senderId,
       senderName,
       senderRole,

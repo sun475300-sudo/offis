@@ -14,16 +14,17 @@ const TILE_COLORS: Record<TileType, number> = {
 
 export class TilemapRenderer {
   private container: PIXI.Container;
-  private gridOverlay: PIXI.Graphics;
 
   constructor(parentContainer: PIXI.Container) {
     this.container = new PIXI.Container();
-    this.gridOverlay = new PIXI.Graphics();
     parentContainer.addChild(this.container);
   }
 
   /** Render the entire tilemap as pixel graphics */
   renderMap(tilemap: Tilemap): void {
+    for (const child of this.container.children) {
+      child.destroy({ children: true });
+    }
     this.container.removeChildren();
 
     const width = tilemap.getWidth();

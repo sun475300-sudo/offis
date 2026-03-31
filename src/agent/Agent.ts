@@ -4,7 +4,6 @@ import {
   AgentSnapshot,
   AgentState,
   BTContext,
-  BTNodeStatus,
   EventType,
   GridCell,
   IEventBus,
@@ -36,6 +35,7 @@ export class Agent {
   // Interpolation state
   private moveTarget: Vec2 | null = null;
   private avoidanceOffset: Vec2 = { x: 0, y: 0 };
+  private occupiedCells: GridCell[] = [];
 
   constructor(
     config: AgentConfig,
@@ -106,6 +106,10 @@ export class Agent {
 
   applyAvoidanceOffset(offset: Vec2): void {
     this.avoidanceOffset = offset;
+  }
+
+  setOccupiedCells(cells: GridCell[]): void {
+    this.occupiedCells = cells;
   }
 
   update(deltaTime: number): void {
@@ -247,7 +251,6 @@ export class Agent {
   }
 
   private getOccupiedCells(): GridCell[] {
-    // This will be populated from the agent manager
-    return [];
+    return this.occupiedCells;
   }
 }

@@ -24,7 +24,7 @@ export class ToastManager {
   }
 
   show(type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, duration: number = 3000): string {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     const toast: Toast = {
       id,
@@ -83,19 +83,31 @@ export class ToastManager {
       info: 'ℹ️',
     };
 
-    el.innerHTML = `
-      <div class="toast-icon">${icons[toast.type]}</div>
-      <div class="toast-content">
-        <div class="toast-title">${toast.title}</div>
-        <div class="toast-message">${toast.message}</div>
-      </div>
-      <button class="toast-close" onclick="window.__toastManager?.dismiss('${toast.id}')">×</button>
-    `;
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'toast-icon';
+    iconDiv.textContent = icons[toast.type];
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'toast-content';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'toast-title';
+    titleDiv.textContent = toast.title;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'toast-message';
+    msgDiv.textContent = toast.message;
+    contentDiv.appendChild(titleDiv);
+    contentDiv.appendChild(msgDiv);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => this.dismiss(toast.id));
+
+    el.appendChild(iconDiv);
+    el.appendChild(contentDiv);
+    el.appendChild(closeBtn);
 
     this.container.appendChild(el);
-
-    // Expose dismiss method globally for onclick
-    (window as any).__toastManager = this;
 
     // Trigger animation
     requestAnimationFrame(() => {
@@ -116,7 +128,8 @@ export class ToastManager {
   }
 
   clearAll(): void {
-    for (const [id] of this.toasts) {
+    const ids = Array.from(this.toasts.keys());
+    for (const id of ids) {
       this.dismiss(id);
     }
   }

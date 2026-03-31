@@ -1,16 +1,12 @@
 import {
-  AgentRole,
   ReviewType,
   ReviewTask,
   ReviewResult,
   ReviewFinding,
   AggregatedReviewReport,
-  AgentSnapshot,
 } from '../types';
 
 export class ReviewService {
-  private currentTask: ReviewTask | null = null;
-
   async startReview(code: string, language: string = 'typescript'): Promise<ReviewTask[]> {
     const tasks: ReviewTask[] = [
       {
@@ -36,7 +32,6 @@ export class ReviewService {
       },
     ];
 
-    this.currentTask = tasks[0];
     return tasks;
   }
 

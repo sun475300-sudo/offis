@@ -43,8 +43,6 @@ export class SpeechBubbleRenderer {
     const maxWidth = 200;
     const padding = 8;
     const fontSize = 10;
-    const lineHeight = 14;
-    
     const text = new PIXI.Text(bubble.message, {
       fontFamily: 'Arial, sans-serif',
       fontSize: fontSize,
@@ -114,7 +112,8 @@ export class SpeechBubbleRenderer {
   }
 
   clearAll(): void {
-    for (const [id] of this.bubbles) {
+    const keys = [...this.bubbles.keys()];
+    for (const id of keys) {
       this.removeBubble(id);
     }
   }

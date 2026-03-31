@@ -1,4 +1,4 @@
-import { BTContext, BTNodeStatus, AgentState, EventType } from '../types';
+import { BTContext, BTNodeStatus, AgentState } from '../types';
 import {
   BTNode,
   SequenceNode,
@@ -51,17 +51,10 @@ function computePath(ctx: BTContext): BTNodeStatus {
   const result = ctx.pathfinder.findPath(currentCell, targetCell);
 
   if (!result.found) {
-    // Try with dynamic obstacle avoidance (recompute without blocking)
-    ctx.eventBus.emit(EventType.AgentPathBlocked, {
-      agentId: ctx.agent.id,
-      from: currentCell,
-      to: targetCell,
-    });
     return BTNodeStatus.Failure;
   }
 
-  // Store path on agent (will be consumed by the Agent class)
-  ctx.agent.path = result.path.slice(1); // remove starting cell
+  // Path is already assigned by the Agent class in assignTask()
   return BTNodeStatus.Success;
 }
 
@@ -71,17 +64,12 @@ function moveAlongPath(ctx: BTContext): BTNodeStatus {
   }
 
   if (ctx.agent.path.length === 0 && ctx.agent.state === AgentState.Moving) {
-    // Arrived at destination
-    ctx.eventBus.emit(EventType.AgentArrived, { agentId: ctx.agent.id });
+    // Arrived at destination — Agent class handles events in onArrived()
     return BTNodeStatus.Success;
   }
 
   if (ctx.agent.state !== AgentState.Moving && ctx.agent.path.length > 0) {
-    // Start moving
-    ctx.eventBus.emit(EventType.AgentStateChanged, {
-      agentId: ctx.agent.id,
-      newState: AgentState.Moving,
-    });
+    // Moving — Agent class handles state transitions
     return BTNodeStatus.Running;
   }
 
@@ -93,23 +81,12 @@ function executeWork(ctx: BTContext): BTNodeStatus {
   if (!task) return BTNodeStatus.Failure;
 
   if (ctx.agent.state !== AgentState.Working) {
-    ctx.eventBus.emit(EventType.AgentStartedWork, {
-      agentId: ctx.agent.id,
-      taskId: task.id,
-    });
-    ctx.eventBus.emit(EventType.AgentStateChanged, {
-      agentId: ctx.agent.id,
-      newState: AgentState.Working,
-    });
+    // Agent class handles state transitions and event emissions
     return BTNodeStatus.Running;
   }
 
-  // Progress the work
+  // Progress the work — Agent class handles AgentFinishedWork event in onWorkCompleted()
   if (ctx.agent.progress >= 1.0) {
-    ctx.eventBus.emit(EventType.AgentFinishedWork, {
-      agentId: ctx.agent.id,
-      taskId: task.id,
-    });
     return BTNodeStatus.Success;
   }
 
@@ -119,25 +96,13 @@ function executeWork(ctx: BTContext): BTNodeStatus {
 function reportAndReturn(ctx: BTContext): BTNodeStatus {
   if (ctx.agent.state === AgentState.Returning) {
     if (ctx.agent.path.length === 0) {
-      // Returned to home desk
-      ctx.eventBus.emit(EventType.AgentStateChanged, {
-        agentId: ctx.agent.id,
-        newState: AgentState.Idle,
-      });
-      ctx.eventBus.emit(EventType.TaskCompleted, {
-        agentId: ctx.agent.id,
-        taskId: ctx.agent.currentTask?.id,
-      });
+      // Returned to home desk — Agent class handles state transition and task completion
       return BTNodeStatus.Success;
     }
     return BTNodeStatus.Running;
   }
 
-  // Start returning
-  ctx.eventBus.emit(EventType.AgentStateChanged, {
-    agentId: ctx.agent.id,
-    newState: AgentState.Returning,
-  });
+  // Agent class handles the transition to Returning state
   return BTNodeStatus.Running;
 }
 

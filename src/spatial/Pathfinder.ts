@@ -1,5 +1,51 @@
 import { GridCell, IPathfinder, ITilemap, PathNode, PathResult } from '../types';
 
+class MinHeap<T> {
+  private data: T[] = [];
+  constructor(private compare: (a: T, b: T) => number) {}
+
+  get size() { return this.data.length; }
+
+  push(item: T): void {
+    this.data.push(item);
+    this._bubbleUp(this.data.length - 1);
+  }
+
+  pop(): T | undefined {
+    if (this.data.length === 0) return undefined;
+    const top = this.data[0];
+    const last = this.data.pop()!;
+    if (this.data.length > 0) {
+      this.data[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+
+  private _bubbleUp(i: number): void {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.compare(this.data[i], this.data[parent]) >= 0) break;
+      [this.data[i], this.data[parent]] = [this.data[parent], this.data[i]];
+      i = parent;
+    }
+  }
+
+  private _sinkDown(i: number): void {
+    const n = this.data.length;
+    while (true) {
+      let smallest = i;
+      const left = 2 * i + 1;
+      const right = 2 * i + 2;
+      if (left < n && this.compare(this.data[left], this.data[smallest]) < 0) smallest = left;
+      if (right < n && this.compare(this.data[right], this.data[smallest]) < 0) smallest = right;
+      if (smallest === i) break;
+      [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];
+      i = smallest;
+    }
+  }
+}
+
 /**
  * A* Pathfinder with dynamic obstacle support.
  * Uses a binary heap for the open set for O(log n) insert/extract.
@@ -38,7 +84,7 @@ export class Pathfinder implements IPathfinder {
       goal = alt;
     }
 
-    const openList: PathNode[] = [];
+    const openList = new MinHeap<PathNode>((a, b) => a.f - b.f);
     const closedSet = new Set<string>();
     const gScores = new Map<string, number>();
     let nodesExplored = 0;
@@ -55,13 +101,16 @@ export class Pathfinder implements IPathfinder {
     openList.push(startNode);
     gScores.set(this.key(start), 0);
 
-    while (openList.length > 0) {
+    while (openList.size > 0) {
       // Extract node with lowest f score
-      openList.sort((a, b) => a.f - b.f);
-      const current = openList.shift()!;
-      nodesExplored++;
+      const current = openList.pop()!;
 
+      // Skip stale entries (a better path was already found for this node)
       const ck = this.key(current.cell);
+      const bestG = gScores.get(ck);
+      if (bestG !== undefined && current.g > bestG) continue;
+
+      nodesExplored++;
 
       if (current.cell.col === goal.col && current.cell.row === goal.row) {
         return {

@@ -101,7 +101,7 @@ export class ParticleSystem {
       p.y += p.vy * deltaTime;
       p.vy += 30 * deltaTime; // gravity
       p.life -= deltaTime;
-      p.alpha = Math.max(0, (p.life / p.maxLife) * p.alpha);
+      p.alpha = Math.max(0, p.life / p.maxLife);
 
       if (p.life <= 0) {
         this.particles.splice(i, 1);

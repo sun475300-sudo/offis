@@ -111,6 +111,11 @@ export class LLMService {
         }),
       });
 
+      if (!response.ok) {
+        console.warn(`[LLMService] API returned ${response.status}`);
+        return this.mockDecomposition(userPrompt);
+      }
+
       const data = await response.json();
       return this.parseClaudeResponse(data);
     } catch (err) {
@@ -164,6 +169,11 @@ export class LLMService {
           tools: TASK_DECOMPOSITION_TOOLS,
         }),
       });
+
+      if (!response.ok) {
+        console.warn(`[LLMService] API returned ${response.status}`);
+        return this.mockDecomposition(userPrompt);
+      }
 
       const data = await response.json();
       return this.parseMinimaxResponse(data);

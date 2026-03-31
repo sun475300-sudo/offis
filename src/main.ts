@@ -15,10 +15,9 @@ import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
 import { Pathfinder } from './spatial/Pathfinder';
 import { Tilemap } from './spatial/Tilemap';
-import { LocalAvoidance } from './spatial/LocalAvoidance';
 import { ReviewService } from './services/ReviewService';
 import { DebateManager } from './debate/DebateManager';
-import { RunnerManager, FeedbackLoopState } from './debate/RunnerManager';
+import { RunnerManager } from './debate/RunnerManager';
 import { CLIEngine } from './core/CLIEngine';
 import { SoundManager } from './core/SoundManager';
 import { ChatSystem } from './core/ChatSystem';
@@ -27,6 +26,13 @@ import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 
 const TILE_SIZE = 32;
+
+/** Escape HTML special characters to prevent XSS */
+function escapeHtml(str: string): string {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
 const MAP_WIDTH = 40;
 const MAP_HEIGHT = 25;
 
@@ -38,7 +44,6 @@ class PixelOfficeApp {
   private agentManager: AgentManager;
   private tilemap: Tilemap;
   private pathfinder: Pathfinder;
-  private localAvoidance: LocalAvoidance;
   private agentRenderer: AgentRenderer;
   private tilemapRenderer: TilemapRenderer;
   private camera: CameraController;
@@ -82,7 +87,6 @@ class PixelOfficeApp {
     this.eventBus = new EventBus();
     this.tilemap = this.createTilemap();
     this.pathfinder = new Pathfinder(this.tilemap);
-    this.localAvoidance = new LocalAvoidance();
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
     this.orchestrator = new Orchestrator(this.agentManager, this.eventBus);
     
@@ -161,6 +165,7 @@ class PixelOfficeApp {
     this.loadHistory();
     this.setupChatPanel();
     this.setupThemeToggle();
+    this.setupMinimizeButtons();
 
     this.gameLoop.start();
     this.logSystem('Pixel Office MAS Dashboard initialized');
@@ -195,7 +200,7 @@ class PixelOfficeApp {
       // PMs (Row 8)
       { id: 'pm-1', name: '임정호', role: AgentRole.PM, homeDesk: { col: 2, row: 8 }, speed: 7, color: 0xE57373 },
       { id: 'pm-2', name: '조민지', role: AgentRole.PM, homeDesk: { col: 4, row: 8 }, speed: 7, color: 0xEF5350 },
-      { id: 'pm-3', name: '서肝癌', role: AgentRole.PM, homeDesk: { col: 6, row: 8 }, speed: 8, color: 0xF44336 },
+      { id: 'pm-3', name: '서하은', role: AgentRole.PM, homeDesk: { col: 6, row: 8 }, speed: 8, color: 0xF44336 },
       
       // QA Engineers (Row 10)
       { id: 'qa-1', name: '황보경', role: AgentRole.QA, homeDesk: { col: 2, row: 10 }, speed: 10, color: 0xBA68C8 },
@@ -211,7 +216,7 @@ class PixelOfficeApp {
       
       // Additional Frontend (Row 14)
       { id: 'fe-5', name: '서민준', role: AgentRole.Frontend, homeDesk: { col: 2, row: 14 }, speed: 3, color: 0x00BCD4 },
-      { id: 'fe-6', name: '류isl', role: AgentRole.Frontend, homeDesk: { col: 4, row: 14 }, speed: 3.2, color: 0x00ACC1 },
+      { id: 'fe-6', name: '류지현', role: AgentRole.Frontend, homeDesk: { col: 4, row: 14 }, speed: 3.2, color: 0x00ACC1 },
       
       // Additional Backend (Row 16)
       { id: 'be-5', name: '전민재', role: AgentRole.Backend, homeDesk: { col: 2, row: 16 }, speed: 3, color: 0x9CCC65 },
@@ -240,22 +245,10 @@ class PixelOfficeApp {
 
   private setupGameLoop(): void {
     this.gameLoop.onUpdate((deltaTime) => {
-      const agents = this.agentManager.getAllAgents();
-      const snapshots = agents.map(a => a.getSnapshot());
+      // AgentManager handles avoidance + update internally
+      this.agentManager.update(deltaTime);
 
-      const dynamicObstacles = this.localAvoidance.getDynamicObstacles(snapshots, '');
-      
-      for (const agent of agents) {
-        const snapshot = agent.getSnapshot();
-        const nearby = snapshots.filter(a => {
-          const dx = a.position.x - snapshot.position.x;
-          const dy = a.position.y - snapshot.position.y;
-          return Math.sqrt(dx * dx + dy * dy) < 50;
-        });
-        const avoidance = this.localAvoidance.computeSteering(snapshot, nearby, deltaTime);
-        agent.applyAvoidanceOffset(avoidance);
-        agent.update(deltaTime);
-      }
+      const snapshots = this.agentManager.getAllSnapshots();
 
       // Particle effects for working agents
       for (const snap of snapshots) {
@@ -291,7 +284,6 @@ class PixelOfficeApp {
       this.agentSelection.update(snapshots, 0);
 
       // Update minimap
-      const cameraPos = { x: 0, y: 0 }; // approximate from camera
       this.minimapRenderer.update(
         snapshots,
         (MAP_WIDTH * TILE_SIZE) / 2,
@@ -544,7 +536,7 @@ class PixelOfficeApp {
         fileEl.className = `attached-file ${file.type === 'github' ? 'github' : ''}`;
         fileEl.innerHTML = `
           <span class="file-icon">${file.type === 'github' ? '🔗' : file.type === 'folder' ? '📁' : '📄'}</span>
-          <span class="file-name">${file.name}</span>
+          <span class="file-name">${escapeHtml(file.name)}</span>
           <button class="file-remove" data-index="${i}">×</button>
         `;
         attachedFilesContainer.appendChild(fileEl);
@@ -745,9 +737,9 @@ class PixelOfficeApp {
           itemEl.className = `file-tree-item ${item.type === 'dir' ? 'folder' : ''}`;
           itemEl.innerHTML = `
             <span class="tree-icon">${item.type === 'dir' ? '📁' : this.getFileIcon(item.name)}</span>
-            <span class="tree-name">${item.name}</span>
+            <span class="tree-name">${escapeHtml(item.name)}</span>
           `;
-          
+
           itemEl.addEventListener('click', async () => {
             if (item.type === 'dir') {
               await fetchDirectory(parsed.owner, parsed.repo, item.path, parsed.branch);
@@ -755,7 +747,7 @@ class PixelOfficeApp {
               await openFile(parsed.owner, parsed.repo, item.path, item.name, parsed.branch);
             }
           });
-          
+
           fileTree.appendChild(itemEl);
         }
       } catch (error) {
@@ -765,7 +757,7 @@ class PixelOfficeApp {
 
     const fetchDirectory = async (owner: string, repo: string, path: string, branch: string): Promise<void> => {
       try {
-        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+        const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}?ref=${encodeURIComponent(branch)}`;
         const response = await fetch(apiUrl);
         const contents = await response.json();
 
@@ -796,7 +788,7 @@ class PixelOfficeApp {
           itemEl.className = `file-tree-item ${item.type === 'dir' ? 'folder' : ''}`;
           itemEl.innerHTML = `
             <span class="tree-icon">${item.type === 'dir' ? '📁' : this.getFileIcon(item.name)}</span>
-            <span class="tree-name">${item.name}</span>
+            <span class="tree-name">${escapeHtml(item.name)}</span>
           `;
           
           itemEl.addEventListener('click', async () => {
@@ -828,7 +820,7 @@ class PixelOfficeApp {
         const data = await response.json();
 
         if (data.content) {
-          const content = atob(data.content);
+          const content = new TextDecoder().decode(Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0)));
           openTabs.push({ path, name, content });
           activeTabIndex = openTabs.length - 1;
           renderTabs();
@@ -845,7 +837,7 @@ class PixelOfficeApp {
         const tabEl = document.createElement('div');
         tabEl.className = `editor-tab ${index === activeTabIndex ? 'active' : ''}`;
         tabEl.innerHTML = `
-          <span>${this.getFileIcon(tab.name)} ${tab.name}</span>
+          <span>${this.getFileIcon(tab.name)} ${escapeHtml(tab.name)}</span>
           <span class="close-tab" data-index="${index}">×</span>
         `;
         
@@ -900,13 +892,13 @@ class PixelOfficeApp {
       }
     });
 
-    // Monitor attached files for GitHub URLs
-    const observer = setInterval(() => {
+    // Monitor attached files for GitHub URLs (check once when files change, not on interval)
+    const checkForGitHubUrl = () => {
       const githubFile = attachedFiles.find(f => f.type === 'github' && f.githubUrl);
       if (githubFile?.githubUrl && githubFile.githubUrl !== currentRepoUrl) {
         fetchFileTree(githubFile.githubUrl);
       }
-    }, 1000);
+    };
 
     // Click on attached file to open repo
     attachedFilesContainer.addEventListener('click', (e) => {
@@ -1021,20 +1013,15 @@ class PixelOfficeApp {
     const successRate = Math.round((completedLoops / totalTests) * 100);
     if (successEl) successEl.textContent = `${successRate}%`;
     
-    // Setup monitor panel minimize button
-    const monitorMinimizeBtn = document.getElementById('btn-minimize-monitor');
-    const monitorPanel = document.getElementById('monitor-panel');
-    monitorMinimizeBtn?.addEventListener('click', () => {
-      monitorPanel?.classList.toggle('minimized');
-    });
   }
 
   private updateAgentPanel(): void {
     const agentList = document.getElementById('agent-list');
+    if (!agentList) return;
     const agents = this.agentManager.getAllAgents().map(a => a.getSnapshot());
 
-    if (agentList!.children.length !== agents.length) {
-      agentList!.innerHTML = '';
+    if (agentList.children.length !== agents.length) {
+      agentList.innerHTML = '';
       for (const agent of agents) {
         const item = document.createElement('div');
         item.className = 'agent-item';
@@ -1042,15 +1029,15 @@ class PixelOfficeApp {
         item.innerHTML = `
           <div class="agent-avatar"></div>
           <div class="agent-info">
-            <div class="agent-name">${agent.name}</div>
-            <div class="agent-role">${this.getRoleLabel(agent.role)}</div>
+            <div class="agent-name">${escapeHtml(agent.name)}</div>
+            <div class="agent-role">${escapeHtml(this.getRoleLabel(agent.role))}</div>
           </div>
           <div class="agent-state" data-state="${agent.state}">${agent.state}</div>
         `;
-        agentList!.appendChild(item);
+        agentList.appendChild(item);
       }
     } else {
-      const items = agentList!.children;
+      const items = agentList.children;
       for (let i = 0; i < agents.length; i++) {
         const item = items[i] as HTMLElement;
         item.dataset.state = agents[i].state;
@@ -1074,6 +1061,9 @@ class PixelOfficeApp {
       [AgentRole.Architect]: 'Architect',
       [AgentRole.SecurityEngineer]: 'Security Engineer',
       [AgentRole.PerformanceEngineer]: 'Performance Engineer',
+      [AgentRole.CEO]: 'CEO / Director',
+      [AgentRole.Coder]: 'Coder',
+      [AgentRole.Reviewer]: 'Reviewer',
     };
     return labels[role] || role;
   }
@@ -1091,14 +1081,15 @@ class PixelOfficeApp {
   }
 
   private addCliMessage(message: string, type: string): void {
-    const output = document.getElementById('cli-output')!;
+    const output = document.getElementById('cli-output');
+    if (!output) return;
     const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-    
+
     const div = document.createElement('div');
     div.className = `cli-message ${type}`;
     div.innerHTML = `
       <span class="time">[${time}]</span>
-      <span class="content">${message}</span>
+      <span class="content">${escapeHtml(message)}</span>
     `;
     output.appendChild(div);
     output.scrollTop = output.scrollHeight;
@@ -1182,6 +1173,8 @@ class PixelOfficeApp {
     if (!this.db) return;
 
     const historyList = document.getElementById('history-list') as HTMLDivElement;
+    if (!historyList) return;
+    historyList.innerHTML = '';
     const transaction = this.db.transaction(['reviews'], 'readonly');
     const store = transaction.objectStore('reviews');
     const index = store.index('timestamp');
@@ -1200,7 +1193,7 @@ class PixelOfficeApp {
         const item = document.createElement('div');
         item.className = 'history-item';
         item.innerHTML = `
-          <div class="project-name">${record.projectName}</div>
+          <div class="project-name">${escapeHtml(record.projectName)}</div>
           <div class="timestamp">${dateStr}</div>
           <div class="score ${scoreClass}">점수: ${record.totalScore}/100</div>
         `;
@@ -1227,12 +1220,6 @@ class PixelOfficeApp {
       }
     };
 
-    // Setup history panel minimize button
-    const historyMinimizeBtn = document.getElementById('btn-minimize-history');
-    const historyPanel = document.getElementById('history-panel');
-    historyMinimizeBtn?.addEventListener('click', () => {
-      historyPanel?.classList.toggle('minimized');
-    });
   }
 
   private exportToMarkdown(report: AggregatedReviewReport, projectName: string): void {
@@ -1429,8 +1416,8 @@ class PixelOfficeApp {
     const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     
     messageDiv.innerHTML = `
-      <div class="sender ${type}">${sender}</div>
-      <div class="content">${content}</div>
+      <div class="sender ${type}">${escapeHtml(sender)}</div>
+      <div class="content">${escapeHtml(content)}</div>
       <div class="timestamp">${time}</div>
     `;
 
@@ -1486,6 +1473,20 @@ class PixelOfficeApp {
       if (msg.senderId !== 'user') {
         this.displayChatMessage(msg.senderName, msg.content, msg.type);
       }
+    });
+  }
+
+  private setupMinimizeButtons(): void {
+    const monitorMinimizeBtn = document.getElementById('btn-minimize-monitor');
+    const monitorPanel = document.getElementById('monitor-panel');
+    monitorMinimizeBtn?.addEventListener('click', () => {
+      monitorPanel?.classList.toggle('minimized');
+    });
+
+    const historyMinimizeBtn = document.getElementById('btn-minimize-history');
+    const historyPanel = document.getElementById('history-panel');
+    historyMinimizeBtn?.addEventListener('click', () => {
+      historyPanel?.classList.toggle('minimized');
     });
   }
 

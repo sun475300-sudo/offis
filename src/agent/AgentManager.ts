@@ -2,9 +2,6 @@ import {
   AgentConfig,
   AgentRole,
   AgentSnapshot,
-  AgentState,
-  EventType,
-  GridCell,
   IEventBus,
   IPathfinder,
   ITilemap,
@@ -42,6 +39,11 @@ export class AgentManager {
 
   /** Remove agent from the system */
   removeAgent(id: string): void {
+    const agent = this.agents.get(id);
+    if (agent) {
+      const snap = agent.getSnapshot();
+      this.tilemap.setOccupant(snap.gridCell.col, snap.gridCell.row, null);
+    }
     this.agents.delete(id);
   }
 
@@ -95,9 +97,18 @@ export class AgentManager {
     // Rebuild spatial hash for efficient neighbor queries
     this.spatialHash.rebuild(snapshots);
 
+    // Collect occupied cells from all agents
+    const allOccupied = snapshots.map(s => s.gridCell);
+
     // Update each agent with local avoidance
     for (const agent of this.agents.values()) {
       const snap = agent.getSnapshot();
+
+      // Supply occupied cells (excluding this agent's own cell)
+      const otherOccupied = allOccupied.filter(
+        c => c.col !== snap.gridCell.col || c.row !== snap.gridCell.row
+      );
+      agent.setOccupiedCells(otherOccupied);
 
       // Query nearby agents for avoidance
       const nearby = this.spatialHash.queryRadius(snap.position, 48);

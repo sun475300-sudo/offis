@@ -1,5 +1,5 @@
 import * as PIXI from 'pixi.js';
-import { GridCell, Vec2 } from '../types';
+import { GridCell } from '../types';
 
 export interface MeetingRoom {
   id: string;
@@ -97,17 +97,23 @@ export class MeetingRoomRenderer {
 
   private drawLabel(gfx: PIXI.Graphics, text: string, isActive: boolean): void {
     gfx.clear();
-    
+
+    // Destroy existing children to avoid leaking text objects
+    for (const child of gfx.children) {
+      child.destroy();
+    }
+    gfx.removeChildren();
+
     const textObj = new PIXI.Text(text, {
       fontFamily: 'Arial',
       fontSize: 10,
       fill: isActive ? 0x3FB950 : 0x8B949E,
       fontWeight: 'bold',
     });
-    
+
     textObj.x = 4;
     textObj.y = 0;
-    
+
     gfx.addChild(textObj);
   }
 
