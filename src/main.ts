@@ -156,6 +156,7 @@ class PixelOfficeApp {
     this.setupStorage();
     this.loadHistory();
     this.setupChatPanel();
+    this.setupThemeToggle();
 
     this.gameLoop.start();
     this.logSystem('Pixel Office MAS Dashboard initialized');
@@ -1481,6 +1482,33 @@ class PixelOfficeApp {
       if (msg.senderId !== 'user') {
         this.displayChatMessage(msg.senderName, msg.content, msg.type);
       }
+    });
+  }
+
+  private setupThemeToggle(): void {
+    const themeToggleBtn = document.getElementById('btn-theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const body = document.body;
+
+    // Load saved theme preference
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    body.dataset.theme = savedTheme;
+    if (themeIcon) {
+      themeIcon.textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+    }
+
+    themeToggleBtn?.addEventListener('click', () => {
+      const currentTheme = body.dataset.theme || 'dark';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      body.dataset.theme = newTheme;
+      localStorage.setItem('theme', newTheme);
+      
+      if (themeIcon) {
+        themeIcon.textContent = newTheme === 'dark' ? '🌙' : '☀️';
+      }
+
+      this.logSystem(`테마 변경: ${newTheme === 'dark' ? '다크 모드' : '라이트 모드'}`, 'system');
     });
   }
 }

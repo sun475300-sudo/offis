@@ -28,6 +28,40 @@
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* Light theme */
+[data-theme="light"] {
+  --bg-dark: #ffffff;
+  --bg-panel: #f6f8fa;
+  --bg-input: #e1e4e8;
+  --border-color: #d0d7de;
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --accent-green: #2da44e;
+  --accent-blue: #0969da;
+  --accent-orange: #bf8700;
+  --accent-red: #cf222e;
+  --accent-purple: #8250df;
+  --accent-cyan: #1b7c83;
+}
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--border-color);
+}
+
+#theme-icon {
+  font-size: 16px;
+}
+
 * {
   margin: 0;
   padding: 0;
