@@ -212,6 +212,71 @@ body {
 .history-item .score.medium { color: var(--accent-orange); }
 .history-item .score.low { color: var(--accent-red); }
 
+/* ============================================================
+   Monitoring Dashboard
+   ============================================================ */
+
+.monitor-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 240px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.monitor-panel.minimized {
+  height: auto;
+}
+
+.monitor-panel.minimized .monitor-content {
+  display: none;
+}
+
+.monitor-content {
+  padding: 12px;
+}
+
+.monitor-section {
+  margin-bottom: 12px;
+}
+
+.monitor-section:last-child {
+  margin-bottom: 0;
+}
+
+.monitor-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.monitor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.monitor-row span:first-child {
+  color: var(--text-secondary);
+}
+
+.monitor-row span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .panel-header {
   display: flex;
   justify-content: space-between;

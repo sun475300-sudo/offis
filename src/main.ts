@@ -6,10 +6,20 @@ import { AgentManager } from './agent/AgentManager';
 import { AgentRenderer } from './rendering/AgentRenderer';
 import { TilemapRenderer } from './rendering/TilemapRenderer';
 import { CameraController } from './rendering/CameraController';
+import { MinimapRenderer } from './rendering/MinimapRenderer';
+import { PerformanceOverlay } from './rendering/PerformanceOverlay';
+import { AgentSelectionSystem } from './rendering/AgentSelectionSystem';
+import { ParticleSystem } from './rendering/ParticleSystem';
+import { StatsChartRenderer } from './rendering/StatsChartRenderer';
 import { Pathfinder } from './spatial/Pathfinder';
 import { Tilemap } from './spatial/Tilemap';
 import { LocalAvoidance } from './spatial/LocalAvoidance';
 import { ReviewService } from './services/ReviewService';
+import { DebateManager } from './debate/DebateManager';
+import { RunnerManager, FeedbackLoopState } from './debate/RunnerManager';
+import { CLIEngine } from './core/CLIEngine';
+import { SoundManager } from './core/SoundManager';
+import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 
 const TILE_SIZE = 32;
@@ -29,9 +39,20 @@ class PixelOfficeApp {
   private tilemapRenderer: TilemapRenderer;
   private camera: CameraController;
   private reviewService: ReviewService;
+  private debateManager: DebateManager;
+  private runnerManager: RunnerManager;
+  private minimapRenderer!: MinimapRenderer;
+  private performanceOverlay!: PerformanceOverlay;
+  private agentSelection!: AgentSelectionSystem;
+  private particleSystem!: ParticleSystem;
+  private statsChart!: StatsChartRenderer;
+  private cliEngine: CLIEngine;
+  private soundManager: SoundManager;
+  private collaborationSystem!: CollaborationSystem;
 
   private rootContainer: PIXI.Container;
   private gameContainer: PIXI.Container;
+  private hudContainer!: PIXI.Container;
 
   constructor() {
     this.app = new PIXI.Application({
@@ -64,13 +85,58 @@ class PixelOfficeApp {
     this.tilemapRenderer.renderMap(this.tilemap);
     this.agentRenderer = new AgentRenderer(this.gameContainer);
     this.reviewService = new ReviewService();
+    this.debateManager = new DebateManager();
+    this.runnerManager = new RunnerManager();
+
+    // HUD container (screen-space, not affected by camera)
+    this.hudContainer = new PIXI.Container();
+    this.app.stage.addChild(this.hudContainer);
+
+    // Phase 1: Minimap
+    this.minimapRenderer = new MinimapRenderer(this.hudContainer, 200, 120);
+    this.minimapRenderer.setPosition(16, screenHeight - 150);
+    this.minimapRenderer.renderMap(this.tilemap);
+
+    // Phase 1: Performance Overlay
+    this.performanceOverlay = new PerformanceOverlay(this.hudContainer);
+    this.performanceOverlay.setPosition(screenWidth - 186, 16);
+
+    // Phase 2: Agent Selection
+    this.agentSelection = new AgentSelectionSystem(this.gameContainer, this.eventBus);
+    this.agentSelection.setupInteraction(this.app);
+    this.agentSelection.onSelect((agentId) => {
+      if (agentId) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (agent) {
+          this.camera.followPosition(agent.getPosition());
+          this.soundManager.playSelect();
+        }
+      } else {
+        this.camera.clearFollow();
+      }
+    });
+
+    // Phase 4: Particle System
+    this.particleSystem = new ParticleSystem(this.gameContainer);
+
+    // Phase 9: Stats Chart
+    this.statsChart = new StatsChartRenderer(this.hudContainer);
+    this.statsChart.setPosition(16, 16);
+
+    // Phase 6: CLI Engine
+    this.cliEngine = new CLIEngine();
+    this.soundManager = new SoundManager();
+
+    // Phase 5: Collaboration System
+    this.collaborationSystem = new CollaborationSystem(this.agentManager, this.eventBus);
 
     this.gameLoop = new GameLoop();
-    
+
     this.setupGameLoop();
     this.setupEventHandlers();
     this.createReviewAgents();
     this.createInitialAgents();
+    this.registerCLICommands();
     this.setupCLI();
     this.setupResize();
     this.setupZoomControls();
@@ -172,13 +238,61 @@ class PixelOfficeApp {
         agent.update(deltaTime);
       }
 
+      // Particle effects for working agents
+      for (const snap of snapshots) {
+        if (snap.state === AgentState.Working) {
+          this.particleSystem.emitTypingSpark(snap.position);
+        }
+      }
+
+      this.particleSystem.update(deltaTime);
       this.camera.update(deltaTime);
+
+      // Follow selected agent camera tracking
+      const selectedId = this.agentSelection.getSelectedAgentId();
+      if (selectedId) {
+        const selectedAgent = this.agentManager.getAgent(selectedId);
+        if (selectedAgent) {
+          this.camera.followPosition(selectedAgent.getPosition());
+        }
+      }
+
+      this.collaborationSystem.update();
       this.updateStats();
+      this.updateMonitoring();
     });
 
     this.gameLoop.onDraw(() => {
       const snapshots = this.agentManager.getAllAgents().map(a => a.getSnapshot());
       this.agentRenderer.update(snapshots, 0);
+
+      // Update agent selection system
+      this.agentSelection.setAgentCache(snapshots);
+      this.agentSelection.update(snapshots, 0);
+
+      // Update minimap
+      const cameraPos = { x: 0, y: 0 }; // approximate from camera
+      this.minimapRenderer.update(
+        snapshots,
+        (MAP_WIDTH * TILE_SIZE) / 2,
+        (MAP_HEIGHT * TILE_SIZE) / 2,
+        window.innerWidth,
+        window.innerHeight - 180,
+        1,
+      );
+
+      // Update performance overlay
+      const taskReport = this.orchestrator.getTaskReport();
+      this.performanceOverlay.update(
+        this.gameLoop.getFPS(),
+        snapshots.length,
+        taskReport.completed + taskReport.pending + taskReport.inProgress,
+      );
+
+      // Update stats chart
+      this.statsChart.recordSnapshot(snapshots);
+      this.statsChart.render(snapshots, taskReport.completed, taskReport.completed + taskReport.pending + taskReport.inProgress);
+
       this.updateAgentPanel();
     });
   }
@@ -199,6 +313,7 @@ class PixelOfficeApp {
       const agent = this.agentManager.getAgent(agentId);
       if (agent) {
         this.logSystem(`Assigned to ${agent.name}: "${taskDescription.substring(0, 30)}..."`, 'success');
+        this.soundManager.playTaskAssigned();
       }
     });
 
@@ -211,7 +326,184 @@ class PixelOfficeApp {
       const agent = this.agentManager.getAgent(agentId);
       if (agent) {
         this.logSystem(`Task completed by ${agent.name}`, 'success');
+        this.soundManager.playTaskComplete();
+        // Sparkle particle at agent position
+        const snap = agent.getSnapshot();
+        this.particleSystem.emitSparkle(snap.position, 0x3fb950, 15);
       }
+    });
+
+    this.eventBus.on(EventType.AgentArrived, (event) => {
+      const { agentId } = event.payload as { agentId: string };
+      const agent = this.agentManager.getAgent(agentId);
+      if (agent) {
+        this.particleSystem.emitPuff(agent.getSnapshot().position);
+      }
+    });
+  }
+
+  private registerCLICommands(): void {
+    this.cliEngine.registerCommand({
+      name: 'help',
+      aliases: ['h', '도움말'],
+      description: 'Show available commands',
+      usage: '/help',
+      handler: async () => {
+        const cmds = this.cliEngine.getRegisteredCommands();
+        const lines = cmds.map(c => `  /${c.name} — ${c.description}`);
+        return 'Available commands:\n' + lines.join('\n');
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'status',
+      aliases: ['s', '상태'],
+      description: 'Show system status',
+      usage: '/status',
+      handler: async () => {
+        const agents = this.agentManager.getAllAgents().map(a => a.getSnapshot());
+        const idle = agents.filter(a => a.state === AgentState.Idle).length;
+        const working = agents.filter(a => a.state === AgentState.Working).length;
+        const moving = agents.filter(a => a.state === AgentState.Moving).length;
+        const report = this.orchestrator.getTaskReport();
+        return [
+          `Agents: ${agents.length} total | ${idle} idle | ${working} working | ${moving} moving`,
+          `Tasks: ${report.completed} done | ${report.pending} pending | ${report.inProgress} active`,
+          `FPS: ${this.gameLoop.getFPS()}`,
+        ].join('\n');
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'agents',
+      aliases: ['a', '에이전트'],
+      description: 'List all agents',
+      usage: '/agents [role]',
+      handler: async (args) => {
+        let agents = this.agentManager.getAllAgents().map(a => a.getSnapshot());
+        if (args[0]) {
+          agents = agents.filter(a => a.role.includes(args[0].toLowerCase()));
+        }
+        const lines = agents.map(a => `  [${a.state.padEnd(10)}] ${a.name} (${a.role}) ${a.currentTask ? '→ ' + a.currentTask.description.substring(0, 30) : ''}`);
+        return `Agents (${agents.length}):\n` + lines.join('\n');
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'follow',
+      aliases: ['f', '추적'],
+      description: 'Follow an agent by ID',
+      usage: '/follow <agent-id>',
+      handler: async (args) => {
+        if (!args[0]) return 'Usage: /follow <agent-id>';
+        const agent = this.agentManager.getAgent(args[0]);
+        if (!agent) return `Agent "${args[0]}" not found`;
+        this.camera.followPosition(agent.getPosition());
+        return `Following ${agent.name} (${args[0]})`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'unfollow',
+      aliases: ['uf'],
+      description: 'Stop following agent',
+      usage: '/unfollow',
+      handler: async () => {
+        this.camera.clearFollow();
+        this.agentSelection.deselect();
+        return 'Camera released';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'meeting',
+      aliases: ['m', '회의'],
+      description: 'Call a meeting',
+      usage: '/meeting <standup|review|planning> [role1,role2]',
+      handler: async (args) => {
+        const typeMap: Record<string, MeetingType> = {
+          standup: MeetingType.StandUp,
+          review: MeetingType.CodeReview,
+          planning: MeetingType.Planning,
+          pair: MeetingType.PairProgramming,
+        };
+        const meetingType = typeMap[args[0]?.toLowerCase()] || MeetingType.StandUp;
+        const roles = args[1]
+          ? args[1].split(',').map(r => r.trim() as AgentRole)
+          : [AgentRole.Frontend, AgentRole.Backend, AgentRole.Designer];
+
+        const meeting = this.collaborationSystem.callMeeting(meetingType, roles, 'Team sync', 12);
+        if (meeting) {
+          this.soundManager.playMeetingStart();
+          return `Meeting started: ${meeting.type} with ${meeting.participants.length} participants`;
+        }
+        return 'Could not start meeting (no available room or insufficient agents)';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'pair',
+      aliases: ['pp', '페어'],
+      description: 'Start pair programming',
+      usage: '/pair <driver-role> <navigator-role>',
+      handler: async (args) => {
+        const driver = (args[0] || 'frontend') as AgentRole;
+        const navigator = (args[1] || 'backend') as AgentRole;
+        const session = this.collaborationSystem.startPairProgramming(driver, navigator, 'Collaborative coding session');
+        if (session) {
+          return `Pair programming: ${session.driverId} (driver) + ${session.navigatorId} (navigator)`;
+        }
+        return 'Could not start pair session (no idle agents for given roles)';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'stats',
+      aliases: ['analytics', '통계'],
+      description: 'Toggle analytics dashboard',
+      usage: '/stats',
+      handler: async () => {
+        this.statsChart.toggle();
+        return `Analytics dashboard: ${this.statsChart.isVisible() ? 'ON' : 'OFF'}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'sound',
+      aliases: ['audio', '소리'],
+      description: 'Toggle sound effects',
+      usage: '/sound [on|off]',
+      handler: async (args) => {
+        if (args[0] === 'off') {
+          this.soundManager.setEnabled(false);
+          return 'Sound: OFF';
+        }
+        this.soundManager.setEnabled(true);
+        return 'Sound: ON';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'zoom',
+      aliases: ['z'],
+      description: 'Set zoom level',
+      usage: '/zoom <0.3-3.0>',
+      handler: async (args) => {
+        const level = parseFloat(args[0]) || 1;
+        this.camera.setZoom(level);
+        return `Zoom set to ${level}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'perf',
+      aliases: ['performance', '성능'],
+      description: 'Toggle performance overlay',
+      usage: '/perf',
+      handler: async () => {
+        this.performanceOverlay.toggle();
+        return 'Performance overlay toggled';
+      },
     });
   }
 
@@ -294,8 +586,8 @@ class PixelOfficeApp {
       const command = input.value.trim();
       if (!command && attachedFiles.length === 0) return;
 
-      const fullCommand = command + (attachedFiles.length > 0 
-        ? '\n\n--- 첨부파일 ---\n' + attachedFiles.map(f => 
+      const fullCommand = command + (attachedFiles.length > 0
+        ? '\n\n--- 첨부파일 ---\n' + attachedFiles.map(f =>
             f.type === 'github' ? `🔗 ${f.githubUrl}` : `📁 ${f.name}`
           ).join('\n')
         : '');
@@ -305,16 +597,31 @@ class PixelOfficeApp {
       submitBtn.disabled = true;
 
       this.logUser(fullCommand);
-      
-      try {
-        await this.orchestrator.processCommand(command);
-      } catch (err) {
-        this.logError(`Error: ${err}`);
+
+      // Process through CLI engine first (slash commands)
+      const cliResult = await this.cliEngine.execute(command);
+
+      if (command.startsWith('/')) {
+        // Slash command handled by CLI engine
+        if (cliResult.output) {
+          const lines = cliResult.output.split('\n');
+          for (const line of lines) {
+            this.logSystem(line, cliResult.type === 'error' ? 'error' : cliResult.type === 'success' ? 'success' : 'system');
+          }
+        }
+      } else {
+        // Natural language — pass to orchestrator
+        try {
+          await this.orchestrator.processCommand(command);
+        } catch (err) {
+          this.logError(`Error: ${err}`);
+          this.soundManager.playError();
+        }
       }
 
       attachedFiles.length = 0;
       updateAttachedFilesDisplay();
-      
+
       input.disabled = false;
       submitBtn.disabled = false;
       input.focus();
@@ -323,6 +630,22 @@ class PixelOfficeApp {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         handleSubmit();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = this.cliEngine.historyUp();
+        if (prev !== null) input.value = prev;
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = this.cliEngine.historyDown();
+        if (next !== null) input.value = next;
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const suggestions = this.cliEngine.getAutocompleteSuggestions(input.value);
+        if (suggestions.length === 1) {
+          input.value = suggestions[0] + ' ';
+        } else if (suggestions.length > 1) {
+          this.logSystem(`Suggestions: ${suggestions.join(', ')}`, 'system');
+        }
       }
     });
 
@@ -633,6 +956,59 @@ class PixelOfficeApp {
     document.getElementById('stat-fps')!.textContent = String(this.gameLoop.getFPS());
   }
 
+  private updateMonitoring(): void {
+    const agents = this.agentManager.getAllAgents();
+    const snapshots = agents.map(a => a.getSnapshot());
+    
+    const idle = snapshots.filter(a => a.state === AgentState.Idle).length;
+    const working = snapshots.filter(a => a.state === AgentState.Working).length;
+    const moving = snapshots.filter(a => a.state === AgentState.Moving).length;
+    
+    const runners = this.runnerManager.getAllRunners();
+    const activeRunners = this.runnerManager.getActiveRunners();
+    
+    const tasks = this.orchestrator.getTaskReport();
+    const allDebates = this.debateManager.getAllSessions();
+    const activeDebates = allDebates.filter(s => s.status === 'active');
+    
+    const agentsEl = document.getElementById('monitor-agents');
+    const runnersEl = document.getElementById('monitor-runners');
+    const tasksEl = document.getElementById('monitor-tasks');
+    const debatesEl = document.getElementById('monitor-debates');
+    const tokensEl = document.getElementById('monitor-tokens');
+    const turnsEl = document.getElementById('monitor-turns');
+    const loopsEl = document.getElementById('monitor-loops');
+    const successEl = document.getElementById('monitor-success');
+    
+    if (agentsEl) agentsEl.textContent = `${agents.length}명 (${idle} 대기, ${working} 작업)`;
+    if (runnersEl) runnersEl.textContent = `${activeRunners.length}대/${runners.length}대`;
+    if (tasksEl) tasksEl.textContent = `${tasks.pending + tasks.inProgress}건`;
+    if (debatesEl) debatesEl.textContent = `${activeDebates.length}건`;
+    if (tokensEl) tokensEl.textContent = `${this.debateManager.getTokenUsage()} 토큰`;
+    
+    const latestDebate = activeDebates[0];
+    if (latestDebate && turnsEl) {
+      turnsEl.textContent = `${latestDebate.currentTurn}/${latestDebate.maxTurns}`;
+    } else if (turnsEl) {
+      turnsEl.textContent = '0/3';
+    }
+    
+    const stats = this.runnerManager.getStats();
+    if (loopsEl) loopsEl.textContent = `${stats.runningLoops}건`;
+    
+    const totalTests = stats.totalTests || 1;
+    const completedLoops = stats.completedLoops || 0;
+    const successRate = Math.round((completedLoops / totalTests) * 100);
+    if (successEl) successEl.textContent = `${successRate}%`;
+    
+    // Setup monitor panel minimize button
+    const monitorMinimizeBtn = document.getElementById('btn-minimize-monitor');
+    const monitorPanel = document.getElementById('monitor-panel');
+    monitorMinimizeBtn?.addEventListener('click', () => {
+      monitorPanel?.classList.toggle('minimized');
+    });
+  }
+
   private updateAgentPanel(): void {
     const agentList = document.getElementById('agent-list');
     const agents = this.agentManager.getAllAgents().map(a => a.getSnapshot());
@@ -733,21 +1109,53 @@ class PixelOfficeApp {
   }
 
   private async saveReviewToDB(report: AggregatedReviewReport, projectName: string, code: string): Promise<void> {
-    if (!this.db) return;
+    console.log('[Debug] saveReviewToDB called:', { projectName, dbExists: !!this.db });
+    
+    if (!this.db) {
+      console.warn('[Debug] IndexedDB not initialized, attempting to init...');
+      this.logSystem('⚠️ 저장소를 초기화합니다...', 'system');
+      
+      // Try to init DB
+      const request = indexedDB.open('PixelOfficeDB', 1);
+      request.onsuccess = (event) => {
+        this.db = (event.target as IDBOpenDBRequest).result;
+        this.logSystem('💾 저장소 준비 완료', 'system');
+        this.saveReviewToDB(report, projectName, code);
+      };
+      request.onerror = () => {
+        this.logError('저장소 초기화 실패');
+      };
+      return;
+    }
 
-    const transaction = this.db.transaction(['reviews'], 'readwrite');
-    const store = transaction.objectStore('reviews');
+    try {
+      const transaction = this.db.transaction(['reviews'], 'readwrite');
+      const store = transaction.objectStore('reviews');
 
-    const reviewRecord = {
-      projectName: projectName || 'Untitled',
-      timestamp: Date.now(),
-      code: code.substring(0, 5000),
-      report: report,
-      totalScore: report.totalScore,
-    };
+      const reviewRecord = {
+        projectName: projectName || 'Untitled',
+        timestamp: Date.now(),
+        code: code.substring(0, 5000),
+        report: JSON.stringify(report),
+        totalScore: report.totalScore,
+      };
 
-    store.add(reviewRecord);
-    this.logSystem('💾 검수 결과가 자동으로 저장되었습니다.', 'success');
+      const request = store.add(reviewRecord);
+      
+      request.onsuccess = () => {
+        console.log('[Debug] Review saved successfully:', request.result);
+        this.logSystem('💾 검수 결과가 자동으로 저장되었습니다.', 'success');
+        this.loadHistory(); // Reload history after saving
+      };
+      
+      request.onerror = () => {
+        console.error('[Debug] Failed to save review:', request.error);
+        this.logError('검수 결과 저장 실패');
+      };
+    } catch (error) {
+      console.error('[Debug] Error saving to DB:', error);
+      this.logError(`저장 오류: ${error}`);
+    }
   }
 
   private async loadHistory(): Promise<void> {
@@ -778,11 +1186,19 @@ class PixelOfficeApp {
         `;
         item.addEventListener('click', () => {
           this.logSystem(`📂 '${record.projectName}' 검수 기록을 불러옵니다...`, 'system');
-          const report = record.report;
-          this.logSystem(`📊 종합 점수: ${report.totalScore}/100`, 'success');
-          this.logSystem(`   - 아키텍처: ${report.architectureScore}/100`, 'system');
-          this.logSystem(`   - 보안/버그: ${report.bugsScore}/100`, 'system');
-          this.logSystem(`   - 성능: ${report.performanceScore}/100`, 'system');
+          let report;
+          try {
+            report = typeof record.report === 'string' ? JSON.parse(record.report) : record.report;
+          } catch (e) {
+            report = record.report;
+          }
+          this.logSystem(`📊 종합 점수: ${report?.totalScore || record.totalScore}/100`, 'success');
+          this.logSystem(`   - 아키텍처: ${report?.architectureScore || 0}/100`, 'system');
+          this.logSystem(`   - 보안/버그: ${report?.bugsScore || 0}/100`, 'system');
+          this.logSystem(`   - 성능: ${report?.performanceScore || 0}/100`, 'system');
+          if (report?.findings?.length > 0) {
+            this.logSystem(`   - 발견된 문제: ${report.findings.length}건`, 'system');
+          }
         });
         
         historyList.appendChild(item);
