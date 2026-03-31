@@ -22,6 +22,7 @@ import { RunnerManager, FeedbackLoopState } from './debate/RunnerManager';
 import { CLIEngine } from './core/CLIEngine';
 import { SoundManager } from './core/SoundManager';
 import { ChatSystem } from './core/ChatSystem';
+import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 
@@ -55,6 +56,7 @@ class PixelOfficeApp {
   private soundManager: SoundManager;
   private collaborationSystem!: CollaborationSystem;
   private chatSystem: ChatSystem;
+  private toastManager: ToastManager;
 
   private rootContainer: PIXI.Container;
   private gameContainer: PIXI.Container;
@@ -94,6 +96,8 @@ class PixelOfficeApp {
     this.debateManager = new DebateManager();
     this.runnerManager = new RunnerManager();
     this.chatSystem = new ChatSystem();
+    this.toastManager = new ToastManager();
+    this.toastManager.init();
 
     // HUD container (screen-space, not affected by camera)
     this.hudContainer = new PIXI.Container();
