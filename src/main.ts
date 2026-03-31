@@ -155,6 +155,7 @@ class PixelOfficeApp {
     this.setupZoomControls();
     this.setupStorage();
     this.loadHistory();
+    this.setupChatPanel();
 
     this.gameLoop.start();
     this.logSystem('Pixel Office MAS Dashboard initialized');
@@ -1405,6 +1406,82 @@ class PixelOfficeApp {
     } catch (error) {
       this.logError(`검수 중 오류 발생: ${error}`);
     }
+  }
+
+  private displayChatMessage(sender: string, content: string, type: 'text' | 'system' | 'debate' = 'text'): void {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+
+    // Remove empty message if exists
+    const emptyMsg = chatMessages.querySelector('.chat-empty');
+    if (emptyMsg) {
+      emptyMsg.remove();
+    }
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message';
+    
+    const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    
+    messageDiv.innerHTML = `
+      <div class="sender ${type}">${sender}</div>
+      <div class="content">${content}</div>
+      <div class="timestamp">${time}</div>
+    `;
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  private setupChatPanel(): void {
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    const sendBtn = document.getElementById('btn-send-chat');
+    const minimizeBtn = document.getElementById('btn-minimize-chat');
+    const chatPanel = document.getElementById('chat-panel');
+
+    const handleSend = () => {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      chatInput.value = '';
+      this.chatSystem.sendMessage('user', '사용자', 'user', message, 'text');
+      this.displayChatMessage('사용자', message, 'text');
+
+      // Simulate agent response
+      setTimeout(() => {
+        const agents = this.agentManager.getAllAgents();
+        const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+        if (randomAgent) {
+          const responses = [
+            '명령을 확인했습니다. 작업을 시작합니다.',
+            '분석 중입니다...',
+            '검토를 진행하겠습니다.',
+            '알겠습니다. 처리 중입니다.',
+          ];
+          const response = responses[Math.floor(Math.random() * responses.length)];
+          this.displayChatMessage(randomAgent.name, response, 'text');
+        }
+      }, 500);
+    };
+
+    chatInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        handleSend();
+      }
+    });
+
+    sendBtn?.addEventListener('click', handleSend);
+
+    minimizeBtn?.addEventListener('click', () => {
+      chatPanel?.classList.toggle('minimized');
+    });
+
+    // Listen for chat system messages
+    this.chatSystem.onMessage((msg) => {
+      if (msg.senderId !== 'user') {
+        this.displayChatMessage(msg.senderName, msg.content, msg.type);
+      }
+    });
   }
 }
 
