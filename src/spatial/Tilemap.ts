@@ -147,6 +147,30 @@ export class Tilemap implements ITilemap {
       }
     }
 
+    // Conference Room (larger meeting area for debates)
+    const confStart = { col: 35, row: 10 };
+    for (let dr = 0; dr < 5; dr++) {
+      for (let dc = 0; dc < 6; dc++) {
+        const c = confStart.col + dc;
+        const r = confStart.row + dr;
+        if (c < this.width - 1 && r < this.height - 1) {
+          grid[r][c] = { type: TileType.MeetingTable, walkable: false, occupantId: null, weight: Infinity };
+        }
+      }
+    }
+
+    // Server Room (for CI/CD runners)
+    const serverStart = { col: 35, row: 20 };
+    for (let dr = 0; dr < 4; dr++) {
+      for (let dc = 0; dc < 4; dc++) {
+        const c = serverStart.col + dc;
+        const r = serverStart.row + dr;
+        if (c < this.width - 1 && r < this.height - 1) {
+          grid[r][c] = { type: TileType.MeetingTable, walkable: false, occupantId: null, weight: Infinity };
+        }
+      }
+    }
+
     // Mark corridor tiles for slightly lower pathfinding weight (preferred paths)
     for (let r = 1; r < this.height - 1; r++) {
       for (let c = 1; c < this.width - 1; c++) {
