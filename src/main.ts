@@ -12,6 +12,7 @@ import { AgentSelectionSystem } from './rendering/AgentSelectionSystem';
 import { ParticleSystem } from './rendering/ParticleSystem';
 import { StatsChartRenderer } from './rendering/StatsChartRenderer';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
+import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
 import { Pathfinder } from './spatial/Pathfinder';
 import { Tilemap } from './spatial/Tilemap';
 import { LocalAvoidance } from './spatial/LocalAvoidance';
@@ -47,6 +48,7 @@ class PixelOfficeApp {
   private agentSelection!: AgentSelectionSystem;
   private particleSystem!: ParticleSystem;
   private speechBubbleRenderer!: SpeechBubbleRenderer;
+  private taskProgressRenderer!: TaskProgressRenderer;
   private statsChart!: StatsChartRenderer;
   private cliEngine: CLIEngine;
   private soundManager: SoundManager;
@@ -123,6 +125,9 @@ class PixelOfficeApp {
 
     // Phase 10: Speech Bubble Renderer
     this.speechBubbleRenderer = new SpeechBubbleRenderer(this.gameContainer);
+
+    // Phase 11: Task Progress Renderer
+    this.taskProgressRenderer = new TaskProgressRenderer(this.gameContainer);
 
     // Phase 9: Stats Chart
     this.statsChart = new StatsChartRenderer(this.hudContainer);
