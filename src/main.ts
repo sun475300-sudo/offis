@@ -21,6 +21,7 @@ import { DebateManager } from './debate/DebateManager';
 import { RunnerManager, FeedbackLoopState } from './debate/RunnerManager';
 import { CLIEngine } from './core/CLIEngine';
 import { SoundManager } from './core/SoundManager';
+import { ChatSystem } from './core/ChatSystem';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 
@@ -53,6 +54,7 @@ class PixelOfficeApp {
   private cliEngine: CLIEngine;
   private soundManager: SoundManager;
   private collaborationSystem!: CollaborationSystem;
+  private chatSystem: ChatSystem;
 
   private rootContainer: PIXI.Container;
   private gameContainer: PIXI.Container;
@@ -91,6 +93,7 @@ class PixelOfficeApp {
     this.reviewService = new ReviewService();
     this.debateManager = new DebateManager();
     this.runnerManager = new RunnerManager();
+    this.chatSystem = new ChatSystem();
 
     // HUD container (screen-space, not affected by camera)
     this.hudContainer = new PIXI.Container();
