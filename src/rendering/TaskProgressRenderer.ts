@@ -103,6 +103,24 @@ export class TaskProgressRenderer {
     }
   }
 
+  updatePosition(id: string, position: Vec2): void {
+    const data = this.progressData.get(id);
+    if (!data) return;
+    data.position = { ...position };
+
+    const graphics = this.progressBars.get(id);
+    if (graphics) {
+      graphics.x = position.x - 25;
+      graphics.y = position.y - 20;
+    }
+
+    const label = this.progressLabels.get(id);
+    if (label) {
+      label.x = position.x - 25;
+      label.y = position.y - 32;
+    }
+  }
+
   removeProgress(id: string): void {
     const graphics = this.progressBars.get(id);
     if (graphics) {

@@ -13,6 +13,7 @@ import { ParticleSystem } from './rendering/ParticleSystem';
 import { StatsChartRenderer } from './rendering/StatsChartRenderer';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
+import { MeetingRoomRenderer } from './rendering/MeetingRoomRenderer';
 import { Pathfinder } from './spatial/Pathfinder';
 import { Tilemap } from './spatial/Tilemap';
 import { LocalAvoidance } from './spatial/LocalAvoidance';
@@ -53,6 +54,7 @@ class PixelOfficeApp {
   private particleSystem!: ParticleSystem;
   private speechBubbleRenderer!: SpeechBubbleRenderer;
   private taskProgressRenderer!: TaskProgressRenderer;
+  private meetingRoomRenderer!: MeetingRoomRenderer;
   private statsChart!: StatsChartRenderer;
   private cliEngine: CLIEngine;
   private soundManager: SoundManager;
@@ -136,10 +138,16 @@ class PixelOfficeApp {
     // Phase 10: Speech Bubble Renderer
     this.speechBubbleRenderer = new SpeechBubbleRenderer(this.gameContainer);
 
-    // Phase 11: Task Progress Renderer
+    // Task Progress Renderer
     this.taskProgressRenderer = new TaskProgressRenderer(this.gameContainer);
 
-    // Phase 9: Stats Chart
+    // Meeting Room Renderer
+    this.meetingRoomRenderer = new MeetingRoomRenderer(this.gameContainer);
+    this.meetingRoomRenderer.addMeetingRoom('room-main', { col: 9, row: 14 });
+    this.meetingRoomRenderer.addMeetingRoom('room-secondary', { col: 17, row: 14 });
+    this.meetingRoomRenderer.addMeetingRoom('room-conference', { col: 35, row: 10 });
+
+    // Stats Chart
     this.statsChart = new StatsChartRenderer(this.hudContainer);
     this.statsChart.setPosition(16, 16);
 
@@ -279,6 +287,24 @@ class PixelOfficeApp {
         }
       }
 
+      // Update task progress bars (position + progress sync)
+      for (const snap of snapshots) {
+        if (snap.currentTask && snap.state === AgentState.Working) {
+          this.taskProgressRenderer.updateProgress(snap.currentTask.id, snap.progress * 100);
+          this.taskProgressRenderer.updatePosition(snap.currentTask.id, snap.position);
+        }
+      }
+
+      // Update meeting room visualization
+      const meetings = this.collaborationSystem.getActiveMeetings();
+      for (const meeting of meetings) {
+        const roomId = meeting.location.col === 9 && meeting.location.row === 14 ? 'room-main'
+          : meeting.location.col === 17 && meeting.location.row === 14 ? 'room-secondary'
+          : 'room-conference';
+        this.meetingRoomRenderer.activateRoom(roomId, meeting.participants);
+      }
+      this.meetingRoomRenderer.update();
+
       this.collaborationSystem.update();
       this.updateStats();
       this.updateMonitoring();
@@ -332,16 +358,27 @@ class PixelOfficeApp {
     });
 
     this.eventBus.on(EventType.TaskAssigned, (event) => {
-      const { agentId, taskDescription } = event.payload as { agentId: string; taskDescription: string };
+      const { agentId, taskDescription, taskId } = event.payload as { agentId: string; taskDescription: string; taskId?: string };
       const agent = this.agentManager.getAgent(agentId);
       if (agent) {
+        const snap = agent.getSnapshot();
         this.logSystem(`Assigned to ${agent.name}: "${taskDescription.substring(0, 30)}..."`, 'success');
         this.soundManager.playTaskAssigned();
+        this.toastManager.info('Task Assigned', `${agent.name}: ${taskDescription.substring(0, 40)}`, 3000);
+        this.chatSystem.sendSystemMessage(`${agent.name}(${snap.role})에게 "${taskDescription.substring(0, 40)}" 작업 할당됨`);
+        // Add progress bar for this task
+        if (taskId) {
+          this.taskProgressRenderer.addProgress(taskId, agentId, taskDescription.substring(0, 20), snap.position);
+        }
       }
     });
 
     this.eventBus.on(EventType.AgentStateChanged, (event) => {
       const { agentId, newState } = event.payload as { agentId: string; newState: AgentState };
+      const agent = this.agentManager.getAgent(agentId);
+      if (agent && newState === AgentState.Working) {
+        this.chatSystem.sendMessage(agentId, agent.name, agent.role, '작업 시작합니다!');
+      }
     });
 
     this.eventBus.on(EventType.TaskCompleted, (event) => {
@@ -350,9 +387,15 @@ class PixelOfficeApp {
       if (agent) {
         this.logSystem(`Task completed by ${agent.name}`, 'success');
         this.soundManager.playTaskComplete();
+        this.toastManager.success('Task Completed', `${agent.name} 작업 완료!`);
+        this.chatSystem.sendMessage(agentId, agent.name, agent.role, '작업 완료했습니다!');
         // Sparkle particle at agent position
         const snap = agent.getSnapshot();
         this.particleSystem.emitSparkle(snap.position, 0x3fb950, 15);
+        // Remove progress bar
+        if (taskId) {
+          this.taskProgressRenderer.removeProgress(taskId);
+        }
       }
     });
 
@@ -526,6 +569,101 @@ class PixelOfficeApp {
       handler: async () => {
         this.performanceOverlay.toggle();
         return 'Performance overlay toggled';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'github',
+      aliases: ['gh', '깃헙'],
+      description: 'Analyze a GitHub repository',
+      usage: '/github <owner/repo>',
+      handler: async (args) => {
+        if (!args[0]) return 'Usage: /github <owner/repo>';
+        const parts = args[0].split('/');
+        if (parts.length !== 2) return 'Format: /github owner/repo';
+        const [owner, repo] = parts;
+        this.logSystem(`Analyzing ${owner}/${repo}...`, 'system');
+        this.toastManager.info('GitHub', `레포지토리 분석 중: ${owner}/${repo}`);
+        try {
+          const analysis = await this.gitHubService.analyzeRepo(owner, repo);
+          this.chatSystem.sendSystemMessage(`GitHub 분석 완료: ${owner}/${repo}`);
+          const lines = [
+            `Repository: ${analysis.repo.fullName}`,
+            `Stars: ${analysis.repo.stars} | Forks: ${analysis.repo.forks}`,
+            `Languages: ${Object.keys(analysis.languages || {}).join(', ')}`,
+            `Recent commits: ${analysis.recentCommits?.length || 0}`,
+            `Files: ${analysis.fileCount} | Size: ${(analysis.totalSize / 1024).toFixed(1)}KB`,
+          ];
+          this.toastManager.success('Analysis Complete', `${owner}/${repo} 분석 완료`);
+          return lines.join('\n');
+        } catch (err) {
+          this.toastManager.error('GitHub Error', `분석 실패: ${err}`);
+          return `Error analyzing repo: ${err}`;
+        }
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'debate',
+      aliases: ['토론'],
+      description: 'Start a code review debate session',
+      usage: '/debate',
+      handler: async () => {
+        // Move review agents to conference room and start debate
+        const reviewAgents = ['review-architect', 'review-security', 'review-performance'];
+        for (const agentId of reviewAgents) {
+          const agent = this.agentManager.getAgent(agentId);
+          if (agent) {
+            agent.assignTask({
+              id: `debate-${Date.now()}-${agentId}`,
+              description: '코드 토론 참가',
+              requiredRole: agent.role,
+              targetDesk: { col: 36, row: 11 },
+              priority: TaskPriority.Critical,
+              status: TaskStatus.Assigned,
+              assignedAgentId: agentId,
+              estimatedDuration: 15,
+              progress: 0,
+              parentTaskId: null,
+              createdAt: Date.now(),
+            });
+          }
+        }
+        this.meetingRoomRenderer.activateRoom('room-conference', reviewAgents);
+        this.soundManager.playMeetingStart();
+        this.toastManager.info('Debate', '코드 토론이 시작됩니다!');
+        this.chatSystem.sendSystemMessage('코드 토론 세션이 시작되었습니다. 리뷰 에이전트들이 회의실로 이동합니다.');
+        return 'Code review debate started — review agents moving to conference room';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'assign',
+      aliases: ['task', '배정'],
+      description: 'Assign task to a specific role',
+      usage: '/assign <role> <task description>',
+      handler: async (args) => {
+        if (args.length < 2) return 'Usage: /assign <role> <description>';
+        const role = args[0] as AgentRole;
+        const description = args.slice(1).join(' ');
+        const idle = this.agentManager.findIdleAgentsByRole(role);
+        if (idle.length === 0) return `No idle ${role} agents available`;
+        const agent = idle[0];
+        agent.assignTask({
+          id: `manual-${Date.now()}`,
+          description,
+          requiredRole: role,
+          targetDesk: { col: 15, row: 15 },
+          priority: TaskPriority.High,
+          status: TaskStatus.Assigned,
+          assignedAgentId: agent.id,
+          estimatedDuration: 8,
+          progress: 0,
+          parentTaskId: null,
+          createdAt: Date.now(),
+        });
+        this.soundManager.playTaskAssigned();
+        return `Assigned "${description}" to ${agent.name} (${role})`;
       },
     });
   }
