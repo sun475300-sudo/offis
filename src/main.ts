@@ -17,6 +17,7 @@ import { Pathfinder } from './spatial/Pathfinder';
 import { Tilemap } from './spatial/Tilemap';
 import { LocalAvoidance } from './spatial/LocalAvoidance';
 import { ReviewService } from './services/ReviewService';
+import { GitHubService } from './services/GitHubService';
 import { DebateManager } from './debate/DebateManager';
 import { RunnerManager, FeedbackLoopState } from './debate/RunnerManager';
 import { CLIEngine } from './core/CLIEngine';
@@ -43,6 +44,7 @@ class PixelOfficeApp {
   private tilemapRenderer: TilemapRenderer;
   private camera: CameraController;
   private reviewService: ReviewService;
+  private gitHubService: GitHubService;
   private debateManager: DebateManager;
   private runnerManager: RunnerManager;
   private minimapRenderer!: MinimapRenderer;
@@ -93,6 +95,7 @@ class PixelOfficeApp {
     this.tilemapRenderer.renderMap(this.tilemap);
     this.agentRenderer = new AgentRenderer(this.gameContainer);
     this.reviewService = new ReviewService();
+    this.gitHubService = new GitHubService();
     this.debateManager = new DebateManager();
     this.runnerManager = new RunnerManager();
     this.chatSystem = new ChatSystem();
