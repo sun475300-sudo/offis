@@ -111,11 +111,11 @@ export class PerformanceOverlay {
     this.fpsText.text = `FPS: ${fps}`;
     this.fpsText.style.fill = fpsColor;
 
-    // Memory (if available)
-    const perf = (performance as any);
-    if (perf.memory) {
-      const usedMB = (perf.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1);
-      const totalMB = (perf.memory.totalJSHeapSize / (1024 * 1024)).toFixed(0);
+    // Memory (Chrome-only non-standard API)
+    const perfWithMemory = performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } };
+    if (perfWithMemory.memory) {
+      const usedMB = (perfWithMemory.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1);
+      const totalMB = (perfWithMemory.memory.totalJSHeapSize / (1024 * 1024)).toFixed(0);
       this.memoryText.text = `MEM: ${usedMB}/${totalMB}MB`;
     }
 

@@ -580,9 +580,10 @@ class PixelOfficeApp {
     fileInput.addEventListener('change', () => {
       if (fileInput.files) {
         for (const file of fileInput.files) {
-          const isDirectory = (file as any).webkitRelativePath || file.name.includes('/');
+          const webkitPath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+          const isDirectory = webkitPath || file.name.includes('/');
           attachedFiles.push({
-            name: (file as any).webkitRelativePath || file.name,
+            name: webkitPath || file.name,
             type: isDirectory ? 'folder' : 'file'
           });
         }

@@ -5,6 +5,7 @@ import {
   AgentState,
   BTContext,
   EventType,
+  GameEvent,
   GridCell,
   IEventBus,
   IPathfinder,
@@ -36,7 +37,7 @@ export class Agent {
   private moveTarget: Vec2 | null = null;
   private avoidanceOffset: Vec2 = { x: 0, y: 0 };
   private occupiedCells: GridCell[] = [];
-  private stateChangeHandler!: (event: { payload: unknown }) => void;
+  private stateChangeHandler!: (event: GameEvent<{ agentId: string; newState: AgentState }>) => void;
 
   constructor(
     config: AgentConfig,
@@ -237,16 +238,16 @@ export class Agent {
 
   private registerEventHandlers(): void {
     this.stateChangeHandler = (event) => {
-      const payload = event.payload as { agentId: string; newState: AgentState };
+      const payload = event.payload;
       // Skip own events to avoid redundant path computation
       if (payload.agentId === this.id) return;
     };
-    this.eventBus.on(EventType.AgentStateChanged, this.stateChangeHandler as any);
+    this.eventBus.on(EventType.AgentStateChanged, this.stateChangeHandler);
   }
 
   /** Clean up event listeners to prevent ghost handlers */
   destroy(): void {
-    this.eventBus.off(EventType.AgentStateChanged, this.stateChangeHandler as any);
+    this.eventBus.off(EventType.AgentStateChanged, this.stateChangeHandler);
   }
 
   private getOccupiedCells(): GridCell[] {
