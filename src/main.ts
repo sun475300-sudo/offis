@@ -607,9 +607,9 @@ class PixelOfficeApp {
       name: 'debate',
       aliases: ['토론'],
       description: 'Start a code review debate session',
-      usage: '/debate',
-      handler: async () => {
-        // Move review agents to conference room and start debate
+      usage: '/debate [code-snippet]',
+      handler: async (args) => {
+        // Move review agents to conference room
         const reviewAgents = ['review-architect', 'review-security', 'review-performance'];
         for (const agentId of reviewAgents) {
           const agent = this.agentManager.getAgent(agentId);
@@ -622,7 +622,7 @@ class PixelOfficeApp {
               priority: TaskPriority.Critical,
               status: TaskStatus.Assigned,
               assignedAgentId: agentId,
-              estimatedDuration: 15,
+              estimatedDuration: 20,
               progress: 0,
               parentTaskId: null,
               createdAt: Date.now(),
@@ -633,7 +633,96 @@ class PixelOfficeApp {
         this.soundManager.playMeetingStart();
         this.toastManager.info('Debate', '코드 토론이 시작됩니다!');
         this.chatSystem.sendSystemMessage('코드 토론 세션이 시작되었습니다. 리뷰 에이전트들이 회의실로 이동합니다.');
-        return 'Code review debate started — review agents moving to conference room';
+
+        // Actually run the debate with real-time chat updates
+        const codeSnippet = args.join(' ') || 'function example() { return any; }';
+        const session = await this.debateManager.startDebate(codeSnippet, 'Live Review');
+
+        // Run debate asynchronously and stream turns to chat
+        this.runDebateWithVisualization(session.id).catch(err => {
+          this.logSystem(`Debate error: ${err}`, 'error');
+        });
+
+        return `Code review debate started (session: ${session.id}) — agents moving to conference room`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'runner',
+      aliases: ['test', '테스트'],
+      description: 'Submit code to test runner or start feedback loop',
+      usage: '/runner [loop]',
+      handler: async (args) => {
+        const runners = this.runnerManager.getActiveRunners();
+        if (runners.length === 0) return 'No active test runners available';
+
+        if (args[0] === 'loop') {
+          // Start a feedback loop
+          const loop = await this.runnerManager.startFeedbackLoop(
+            'office-app',
+            'const app = new PixelOffice();',
+            runners[0].id,
+            { minFps: 55, maxFrameDrop: 0.02 },
+          );
+          this.toastManager.info('Feedback Loop', `피드백 루프 시작: ${loop.id}`);
+          this.chatSystem.sendSystemMessage(`CI/CD 피드백 루프가 시작되었습니다 (${loop.id})`);
+
+          // Run loop asynchronously
+          this.runnerManager.runFeedbackCycle(loop.id).then(result => {
+            const status = result.state === FeedbackLoopState.Complete ? 'success' : 'failed';
+            this.toastManager[status === 'success' ? 'success' : 'error'](
+              'Feedback Loop',
+              `루프 완료: ${result.iteration}회 반복, ${result.fixAttempts}회 수정`,
+            );
+            this.chatSystem.sendSystemMessage(
+              `피드백 루프 ${status}: ${result.iteration}회 반복, ${result.testResults.length}개 테스트 실행`,
+            );
+            this.logSystem(`Feedback loop ${status}: ${result.iteration} iterations`, status === 'success' ? 'success' : 'error');
+          });
+
+          return `Feedback loop started: ${loop.id}`;
+        }
+
+        // Single test run
+        const runner = runners.find(r => r.status === 'idle') || runners[0];
+        this.toastManager.info('Test Runner', `${runner.name}에서 테스트 실행 중...`);
+        this.chatSystem.sendSystemMessage(`${runner.name} (${runner.type})에서 테스트를 실행합니다`);
+
+        const result = await this.runnerManager.submitTest(runner.id, 'test code');
+        const statusEmoji = result.status === 'success' ? '✅' : '❌';
+        this.toastManager[result.status === 'success' ? 'success' : 'error'](
+          'Test Result',
+          `${statusEmoji} ${runner.name}: ${result.status}`,
+        );
+        this.chatSystem.sendSystemMessage(
+          `${statusEmoji} 테스트 결과 (${runner.name}): ${result.status} | FPS: ${result.metrics.fps?.toFixed(1)} | Memory: ${result.metrics.memoryUsage?.toFixed(0)}MB`,
+        );
+
+        const lines = [
+          `Runner: ${runner.name} (${runner.type})`,
+          `Status: ${result.status}`,
+          `FPS: ${result.metrics.fps?.toFixed(1)} | Memory: ${result.metrics.memoryUsage?.toFixed(0)}MB`,
+          `Errors: ${result.errors.length}`,
+        ];
+        if (result.errors.length > 0) {
+          lines.push(...result.errors.map(e => `  - ${e.type}: ${e.message}`));
+        }
+        return lines.join('\n');
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'runners',
+      aliases: ['러너'],
+      description: 'List all test runners',
+      usage: '/runners',
+      handler: async () => {
+        const runners = this.runnerManager.getAllRunners();
+        const lines = runners.map(r => {
+          const statusIcon = r.status === 'idle' ? '🟢' : r.status === 'running' ? '🟡' : r.status === 'error' ? '🔴' : '⚫';
+          return `  ${statusIcon} ${r.name} (${r.type}) — ${r.specs.cpu} / ${r.specs.gpu} / ${r.specs.ram}`;
+        });
+        return `Test Runners (${runners.length}):\n${lines.join('\n')}`;
       },
     });
 
@@ -664,6 +753,62 @@ class PixelOfficeApp {
         });
         this.soundManager.playTaskAssigned();
         return `Assigned "${description}" to ${agent.name} (${role})`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'desk',
+      aliases: ['책상'],
+      description: 'Place or remove a desk',
+      usage: '/desk <add|remove> <col> <row>',
+      handler: async (args) => {
+        if (args.length < 3) return 'Usage: /desk <add|remove> <col> <row>';
+        const action = args[0];
+        const col = parseInt(args[1]);
+        const row = parseInt(args[2]);
+        if (isNaN(col) || isNaN(row)) return 'Invalid coordinates';
+
+        if (action === 'add') {
+          const ok = this.tilemap.placeDesk(col, row);
+          if (ok) {
+            this.tilemapRenderer.renderMap(this.tilemap);
+            this.toastManager.success('Desk', `책상 배치: (${col}, ${row})`);
+            return `Desk placed at (${col}, ${row})`;
+          }
+          return `Cannot place desk at (${col}, ${row}) — tile is not empty floor`;
+        } else if (action === 'remove') {
+          const ok = this.tilemap.removeFurniture(col, row);
+          if (ok) {
+            this.tilemapRenderer.renderMap(this.tilemap);
+            this.toastManager.info('Furniture', `가구 제거: (${col}, ${row})`);
+            return `Furniture removed at (${col}, ${row})`;
+          }
+          return `Nothing to remove at (${col}, ${row})`;
+        }
+        return 'Usage: /desk <add|remove> <col> <row>';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'table',
+      aliases: ['회의테이블'],
+      description: 'Place a meeting table zone',
+      usage: '/table <col> <row> <width> <height>',
+      handler: async (args) => {
+        if (args.length < 4) return 'Usage: /table <col> <row> <width> <height>';
+        const col = parseInt(args[0]);
+        const row = parseInt(args[1]);
+        const w = parseInt(args[2]);
+        const h = parseInt(args[3]);
+        if ([col, row, w, h].some(isNaN)) return 'Invalid parameters';
+
+        const placed = this.tilemap.placeMeetingTable(col, row, w, h);
+        if (placed > 0) {
+          this.tilemapRenderer.renderMap(this.tilemap);
+          this.toastManager.success('Meeting Table', `회의 테이블 배치: ${placed}타일`);
+          return `Meeting table placed: ${placed} tiles at (${col}, ${row}) ${w}x${h}`;
+        }
+        return 'Could not place table (area not empty)';
       },
     });
   }
@@ -1102,6 +1247,13 @@ class PixelOfficeApp {
         (MAP_HEIGHT * TILE_SIZE) / 2
       );
     });
+
+    // Monitor panel minimize
+    const monitorMinimizeBtn = document.getElementById('btn-minimize-monitor');
+    const monitorPanel = document.getElementById('monitor-panel');
+    monitorMinimizeBtn?.addEventListener('click', () => {
+      monitorPanel?.classList.toggle('minimized');
+    });
   }
 
   private updateStats(): void {
@@ -1115,6 +1267,84 @@ class PixelOfficeApp {
     document.getElementById('stat-working')!.textContent = String(working);
     document.getElementById('stat-tasks')!.textContent = String(tasks.pending + tasks.completed);
     document.getElementById('stat-fps')!.textContent = String(this.gameLoop.getFPS());
+  }
+
+  /** Run debate session with real-time visualization in chat and speech bubbles */
+  private async runDebateWithVisualization(sessionId: string): Promise<void> {
+    const session = await this.debateManager.runDebate(sessionId);
+
+    // Stream each turn's message to chat with a small delay for visual effect
+    for (const turn of session.turns) {
+      const agent = this.agentManager.getAgent(turn.speakerId);
+      const agentName = agent?.name || turn.speakerId;
+      const agentRole = agent?.role || turn.speakerRole;
+
+      // Send as agent chat message
+      this.chatSystem.sendMessage(turn.speakerId, agentName, agentRole, turn.message);
+
+      // Show speech bubble on the agent
+      if (agent) {
+        const snap = agent.getSnapshot();
+        this.speechBubbleRenderer.addBubble(
+          `debate-${turn.speakerId}-${turn.turn}`,
+          turn.speakerId,
+          turn.message.substring(0, 30) + '...',
+          snap.position,
+          0xFFFFFF,
+          4000,
+        );
+        // Particle effect for each turn
+        this.particleSystem.emitSparkle(snap.position, turn.agreement ? 0x00FF88 : 0xFF6666, 8);
+      }
+
+      // Findings logged
+      for (const finding of turn.findings) {
+        const severity = finding.severity === 'critical' ? '🔴' : finding.severity === 'high' ? '🟠' : '🟡';
+        this.logSystem(`${severity} [${finding.category}] ${finding.description}`, 'system');
+      }
+    }
+
+    // Final conclusion
+    if (session.finalConclusion) {
+      this.chatSystem.sendSystemMessage(`📋 토론 결론: ${session.finalConclusion}`);
+      this.toastManager.success('Debate Complete', session.finalConclusion);
+      this.logSystem(`Debate concluded: ${session.finalConclusion}`, 'success');
+    }
+
+    // Deactivate conference room
+    this.meetingRoomRenderer.deactivateRoom('room-conference');
+
+    // Add to review history
+    this.addHistoryEntry({
+      timestamp: Date.now(),
+      type: 'debate',
+      summary: session.finalConclusion || 'Debate completed',
+      findings: session.turns.flatMap(t => t.findings).length,
+      turns: session.turns.length,
+    });
+  }
+
+  private addHistoryEntry(entry: { timestamp: number; type: string; summary: string; findings: number; turns: number }): void {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+
+    // Remove empty state if present
+    const emptyEl = historyList.querySelector('.history-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    const date = new Date(entry.timestamp);
+    const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    item.innerHTML = `
+      <div class="history-time">${timeStr}</div>
+      <div class="history-info">
+        <div class="history-type">${entry.type === 'debate' ? '💬 토론' : '🔍 리뷰'}</div>
+        <div class="history-summary">${entry.summary}</div>
+        <div class="history-meta">${entry.findings}개 발견 | ${entry.turns}턴</div>
+      </div>
+    `;
+    historyList.prepend(item);
   }
 
   private updateMonitoring(): void {
@@ -1156,18 +1386,24 @@ class PixelOfficeApp {
     
     const stats = this.runnerManager.getStats();
     if (loopsEl) loopsEl.textContent = `${stats.runningLoops}건`;
-    
+
     const totalTests = stats.totalTests || 1;
     const completedLoops = stats.completedLoops || 0;
     const successRate = Math.round((completedLoops / totalTests) * 100);
     if (successEl) successEl.textContent = `${successRate}%`;
-    
-    // Setup monitor panel minimize button
-    const monitorMinimizeBtn = document.getElementById('btn-minimize-monitor');
-    const monitorPanel = document.getElementById('monitor-panel');
-    monitorMinimizeBtn?.addEventListener('click', () => {
-      monitorPanel?.classList.toggle('minimized');
-    });
+
+    // Average time from completed loops
+    const avgTimeEl = document.getElementById('monitor-avg-time');
+    if (avgTimeEl) {
+      const allLoops = this.runnerManager.getAllLoops();
+      const completed = allLoops.filter(l => l.completedAt);
+      if (completed.length > 0) {
+        const avgMs = completed.reduce((sum, l) => sum + ((l.completedAt || l.startedAt) - l.startedAt), 0) / completed.length;
+        avgTimeEl.textContent = `${(avgMs / 1000).toFixed(1)}s`;
+      } else {
+        avgTimeEl.textContent = '0s';
+      }
+    }
   }
 
   private updateAgentPanel(): void {

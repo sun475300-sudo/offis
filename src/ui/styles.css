@@ -246,6 +246,55 @@ body {
 .history-item .score.medium { color: var(--accent-orange); }
 .history-item .score.low { color: var(--accent-red); }
 
+/* History item — debate/review format */
+.history-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.history-time {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.history-summary {
+  font-size: 11px;
+  color: var(--text-primary);
+  margin-top: 2px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.history-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* ============================================================
    Monitoring Dashboard
    ============================================================ */
@@ -1246,4 +1295,125 @@ body {
 
 .pie-legend-value {
   color: var(--text-secondary);
+}
+
+/* ============================================================
+   Responsive Layout
+   ============================================================ */
+
+@media (max-width: 1200px) {
+  .monitor-panel {
+    width: 200px;
+    font-size: 10px;
+  }
+
+  .agent-status-panel {
+    width: 220px;
+  }
+
+  .history-panel {
+    width: 240px;
+  }
+
+  .chat-panel {
+    width: 260px;
+  }
+}
+
+@media (max-width: 900px) {
+  .monitor-panel {
+    width: 180px;
+    top: 8px;
+    left: 8px;
+  }
+
+  .agent-status-panel,
+  .history-panel {
+    width: 200px;
+  }
+
+  .chat-panel {
+    width: 220px;
+  }
+
+  .header-stats {
+    gap: 8px;
+  }
+
+  .stat-label {
+    font-size: 8px;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .monitor-panel,
+  .history-panel {
+    display: none;
+  }
+
+  .agent-status-panel {
+    width: 180px;
+    max-height: 200px;
+  }
+
+  .chat-panel {
+    width: 200px;
+    bottom: 160px;
+  }
+
+  .header {
+    padding: 4px 8px;
+  }
+
+  .logo-badge {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Scrollbar Styling
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ============================================================
+   Animation Utilities
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.history-item {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.monitor-row span:last-child {
+  transition: color 0.3s ease;
 }

@@ -183,6 +183,42 @@ export class Tilemap implements ITilemap {
     return grid;
   }
 
+  /** Place a desk at a specific tile */
+  placeDesk(col: number, row: number): boolean {
+    if (col < 1 || col >= this.width - 1 || row < 1 || row >= this.height - 1) return false;
+    const tile = this.grid[row][col];
+    if (tile.type !== TileType.Floor) return false;
+    this.grid[row][col] = { type: TileType.Desk, walkable: false, occupantId: null, weight: Infinity };
+    return true;
+  }
+
+  /** Remove furniture at a specific tile (replace with floor) */
+  removeFurniture(col: number, row: number): boolean {
+    if (col < 1 || col >= this.width - 1 || row < 1 || row >= this.height - 1) return false;
+    const tile = this.grid[row][col];
+    if (tile.type === TileType.Wall || tile.type === TileType.Floor) return false;
+    this.grid[row][col] = { type: TileType.Floor, walkable: true, occupantId: null, weight: 1 };
+    return true;
+  }
+
+  /** Place a meeting table zone */
+  placeMeetingTable(startCol: number, startRow: number, width: number, height: number): number {
+    let placed = 0;
+    for (let dr = 0; dr < height; dr++) {
+      for (let dc = 0; dc < width; dc++) {
+        const c = startCol + dc;
+        const r = startRow + dr;
+        if (c >= 1 && c < this.width - 1 && r >= 1 && r < this.height - 1) {
+          if (this.grid[r][c].type === TileType.Floor) {
+            this.grid[r][c] = { type: TileType.MeetingTable, walkable: false, occupantId: null, weight: Infinity };
+            placed++;
+          }
+        }
+      }
+    }
+    return placed;
+  }
+
   private wall(): TileData {
     return { type: TileType.Wall, walkable: false, occupantId: null, weight: Infinity };
   }
