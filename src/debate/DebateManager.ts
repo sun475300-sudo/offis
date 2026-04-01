@@ -209,6 +209,10 @@ export class DebateManager {
     return this.tokenUsage;
   }
 
+  setDebateDelay(ms: number): void {
+    this.debateDelay = ms;
+  }
+
   getParticipants(): DebateParticipant[] {
     return DEBATE_PARTICIPANTS;
   }
