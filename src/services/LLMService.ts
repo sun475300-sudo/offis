@@ -124,13 +124,14 @@ export class LLMService {
     }
   }
 
-  private parseClaudeResponse(data: any): LLMResponse {
+  private parseClaudeResponse(data: Record<string, unknown>): LLMResponse {
     try {
-      const toolUseBlock = data.content?.find((b: any) => b.type === 'tool_use');
+      const content = data.content as Array<{ type: string; text?: string; input?: { tasks?: LLMTaskDecomposition[] } }> | undefined;
+      const toolUseBlock = content?.find(b => b.type === 'tool_use');
       if (toolUseBlock?.input?.tasks) {
         return {
-          tasks: toolUseBlock.input.tasks as LLMTaskDecomposition[],
-          reasoning: data.content?.find((b: any) => b.type === 'text')?.text || '',
+          tasks: toolUseBlock.input.tasks,
+          reasoning: content?.find(b => b.type === 'text')?.text || '',
           confidence: 0.9,
         };
       }
@@ -183,9 +184,10 @@ export class LLMService {
     }
   }
 
-  private parseMinimaxResponse(data: any): LLMResponse {
+  private parseMinimaxResponse(data: Record<string, unknown>): LLMResponse {
     try {
-      const message = data.choices?.[0]?.message;
+      const choices = data.choices as Array<{ message?: { tool_calls?: Array<{ function: { arguments: string } }> } }> | undefined;
+      const message = choices?.[0]?.message;
       if (message?.tool_calls?.[0]?.function?.arguments) {
         const args = JSON.parse(message.tool_calls[0].function.arguments);
         return { tasks: args.tasks, reasoning: '', confidence: 0.85 };

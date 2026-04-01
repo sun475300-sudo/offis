@@ -23,7 +23,7 @@ import { SoundManager } from './core/SoundManager';
 import { ChatSystem } from './core/ChatSystem';
 import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
-import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
+import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskInfo, TaskPriority, TaskStatus } from './types';
 
 const TILE_SIZE = 32;
 
@@ -332,7 +332,7 @@ class PixelOfficeApp {
     });
 
     this.eventBus.on(EventType.TasksParsed, (event) => {
-      const { tasks } = event.payload as { tasks: any[] };
+      const { tasks } = event.payload as { tasks: TaskInfo[] };
       this.logSystem(`Parsed ${tasks.length} tasks`, 'system');
     });
 

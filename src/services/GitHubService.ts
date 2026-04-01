@@ -28,6 +28,24 @@ export interface GitHubCommit {
   date: string;
 }
 
+// Raw API response types (partial, for type-safe parsing)
+interface GitHubApiContentItem {
+  name: string;
+  path: string;
+  type: string;
+  size: number;
+  download_url?: string | null;
+  content?: string;
+}
+
+interface GitHubApiCommit {
+  sha: string;
+  commit: {
+    message: string;
+    author: { name: string; date: string };
+  };
+}
+
 export interface RepoAnalysis {
   repo: GitHubRepo;
   fileCount: number;
@@ -93,12 +111,12 @@ export class GitHubService {
     const data = await response.json();
     const items = Array.isArray(data) ? data : [data];
 
-    return items.map((item: any) => ({
+    return items.map((item: GitHubApiContentItem) => ({
       name: item.name,
       path: item.path,
-      type: item.type,
+      type: item.type as 'file' | 'dir',
       size: item.size || 0,
-      downloadUrl: item.download_url,
+      downloadUrl: item.download_url || undefined,
     }));
   }
 
@@ -135,11 +153,11 @@ export class GitHubService {
     }
 
     const data = await response.json();
-    return data.map((commit: any) => ({
+    return data.map((commit: GitHubApiCommit) => ({
       sha: commit.sha.substring(0, 7),
       message: commit.commit.message.split('\n')[0],
-      author: commit.commit.author.name,
-      date: commit.commit.author.date,
+      author: commit.commit.author?.name || 'Unknown',
+      date: commit.commit.author?.date || '',
     }));
   }
 
