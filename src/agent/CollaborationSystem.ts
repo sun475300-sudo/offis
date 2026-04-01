@@ -113,8 +113,8 @@ export class CollaborationSystem {
       });
     }
 
-    // Emit a meeting-started event (using TaskCompleted as a general notification)
-    this.eventBus.emit(EventType.TaskCompleted, {
+    // Emit a meeting-started event
+    this.eventBus.emit(EventType.MeetingStarted, {
       meetingId,
       type: 'meeting_started',
       participants: participantIds,

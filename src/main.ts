@@ -63,6 +63,21 @@ class PixelOfficeApp {
   private chatSystem: ChatSystem;
   private toastManager: ToastManager;
 
+  // Cached DOM elements for per-frame updates
+  private statAgentsEl: HTMLElement | null = null;
+  private statIdleEl: HTMLElement | null = null;
+  private statWorkingEl: HTMLElement | null = null;
+  private statTasksEl: HTMLElement | null = null;
+  private statFpsEl: HTMLElement | null = null;
+  private monitorAgentsEl: HTMLElement | null = null;
+  private monitorRunnersEl: HTMLElement | null = null;
+  private monitorTasksEl: HTMLElement | null = null;
+  private monitorDebatesEl: HTMLElement | null = null;
+  private monitorTokensEl: HTMLElement | null = null;
+  private monitorTurnsEl: HTMLElement | null = null;
+  private monitorLoopsEl: HTMLElement | null = null;
+  private monitorSuccessEl: HTMLElement | null = null;
+
   private rootContainer: PIXI.Container;
   private gameContainer: PIXI.Container;
   private hudContainer!: PIXI.Container;
@@ -162,6 +177,7 @@ class PixelOfficeApp {
     this.setupResize();
     this.setupZoomControls();
     this.setupStorage();
+    this.cacheDomElements();
     this.loadHistory();
     this.setupChatPanel();
     this.setupThemeToggle();
@@ -759,6 +775,7 @@ class PixelOfficeApp {
       try {
         const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}?ref=${encodeURIComponent(branch)}`;
         const response = await fetch(apiUrl);
+        if (!response.ok) return;
         const contents = await response.json();
 
         fileTree.innerHTML = '';
@@ -815,8 +832,9 @@ class PixelOfficeApp {
       }
 
       try {
-        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+        const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}?ref=${encodeURIComponent(branch)}`;
         const response = await fetch(apiUrl);
+        if (!response.ok) return;
         const data = await response.json();
 
         if (data.content) {
@@ -867,14 +885,6 @@ class PixelOfficeApp {
       });
     };
 
-    // Watch for attached files changes
-    const checkForGitHub = () => {
-      const githubFile = attachedFiles.find(f => f.type === 'github' && f.githubUrl);
-      if (githubFile?.githubUrl) {
-        fetchFileTree(githubFile.githubUrl);
-      }
-    };
-
     // Close button
     closeBtn?.addEventListener('click', () => {
       hideRepoPanel();
@@ -891,14 +901,6 @@ class PixelOfficeApp {
         fetchFileTree(currentRepoUrl);
       }
     });
-
-    // Monitor attached files for GitHub URLs (check once when files change, not on interval)
-    const checkForGitHubUrl = () => {
-      const githubFile = attachedFiles.find(f => f.type === 'github' && f.githubUrl);
-      if (githubFile?.githubUrl && githubFile.githubUrl !== currentRepoUrl) {
-        fetchFileTree(githubFile.githubUrl);
-      }
-    };
 
     // Click on attached file to open repo
     attachedFilesContainer.addEventListener('click', (e) => {
@@ -924,6 +926,22 @@ class PixelOfficeApp {
       zip: '📦', tar: '📦', gz: '📦',
     };
     return icons[ext] || '📄';
+  }
+
+  private cacheDomElements(): void {
+    this.statAgentsEl = document.getElementById('stat-agents');
+    this.statIdleEl = document.getElementById('stat-idle');
+    this.statWorkingEl = document.getElementById('stat-working');
+    this.statTasksEl = document.getElementById('stat-tasks');
+    this.statFpsEl = document.getElementById('stat-fps');
+    this.monitorAgentsEl = document.getElementById('monitor-agents');
+    this.monitorRunnersEl = document.getElementById('monitor-runners');
+    this.monitorTasksEl = document.getElementById('monitor-tasks');
+    this.monitorDebatesEl = document.getElementById('monitor-debates');
+    this.monitorTokensEl = document.getElementById('monitor-tokens');
+    this.monitorTurnsEl = document.getElementById('monitor-turns');
+    this.monitorLoopsEl = document.getElementById('monitor-loops');
+    this.monitorSuccessEl = document.getElementById('monitor-success');
   }
 
   private setupResize(): void {
@@ -961,11 +979,11 @@ class PixelOfficeApp {
     const working = agents.filter(a => a.state === AgentState.Working).length;
     const tasks = this.orchestrator.getTaskReport();
 
-    document.getElementById('stat-agents')!.textContent = String(agents.length);
-    document.getElementById('stat-idle')!.textContent = String(idle);
-    document.getElementById('stat-working')!.textContent = String(working);
-    document.getElementById('stat-tasks')!.textContent = String(tasks.pending + tasks.completed);
-    document.getElementById('stat-fps')!.textContent = String(this.gameLoop.getFPS());
+    if (this.statAgentsEl) this.statAgentsEl.textContent = String(agents.length);
+    if (this.statIdleEl) this.statIdleEl.textContent = String(idle);
+    if (this.statWorkingEl) this.statWorkingEl.textContent = String(working);
+    if (this.statTasksEl) this.statTasksEl.textContent = String(tasks.pending + tasks.completed);
+    if (this.statFpsEl) this.statFpsEl.textContent = String(this.gameLoop.getFPS());
   }
 
   private updateMonitoring(): void {
@@ -974,7 +992,6 @@ class PixelOfficeApp {
     
     const idle = snapshots.filter(a => a.state === AgentState.Idle).length;
     const working = snapshots.filter(a => a.state === AgentState.Working).length;
-    const moving = snapshots.filter(a => a.state === AgentState.Moving).length;
     
     const runners = this.runnerManager.getAllRunners();
     const activeRunners = this.runnerManager.getActiveRunners();
@@ -983,35 +1000,26 @@ class PixelOfficeApp {
     const allDebates = this.debateManager.getAllSessions();
     const activeDebates = allDebates.filter(s => s.status === 'active');
     
-    const agentsEl = document.getElementById('monitor-agents');
-    const runnersEl = document.getElementById('monitor-runners');
-    const tasksEl = document.getElementById('monitor-tasks');
-    const debatesEl = document.getElementById('monitor-debates');
-    const tokensEl = document.getElementById('monitor-tokens');
-    const turnsEl = document.getElementById('monitor-turns');
-    const loopsEl = document.getElementById('monitor-loops');
-    const successEl = document.getElementById('monitor-success');
-    
-    if (agentsEl) agentsEl.textContent = `${agents.length}명 (${idle} 대기, ${working} 작업)`;
-    if (runnersEl) runnersEl.textContent = `${activeRunners.length}대/${runners.length}대`;
-    if (tasksEl) tasksEl.textContent = `${tasks.pending + tasks.inProgress}건`;
-    if (debatesEl) debatesEl.textContent = `${activeDebates.length}건`;
-    if (tokensEl) tokensEl.textContent = `${this.debateManager.getTokenUsage()} 토큰`;
-    
+    if (this.monitorAgentsEl) this.monitorAgentsEl.textContent = `${agents.length}명 (${idle} 대기, ${working} 작업)`;
+    if (this.monitorRunnersEl) this.monitorRunnersEl.textContent = `${activeRunners.length}대/${runners.length}대`;
+    if (this.monitorTasksEl) this.monitorTasksEl.textContent = `${tasks.pending + tasks.inProgress}건`;
+    if (this.monitorDebatesEl) this.monitorDebatesEl.textContent = `${activeDebates.length}건`;
+    if (this.monitorTokensEl) this.monitorTokensEl.textContent = `${this.debateManager.getTokenUsage()} 토큰`;
+
     const latestDebate = activeDebates[0];
-    if (latestDebate && turnsEl) {
-      turnsEl.textContent = `${latestDebate.currentTurn}/${latestDebate.maxTurns}`;
-    } else if (turnsEl) {
-      turnsEl.textContent = '0/3';
+    if (latestDebate && this.monitorTurnsEl) {
+      this.monitorTurnsEl.textContent = `${latestDebate.currentTurn}/${latestDebate.maxTurns}`;
+    } else if (this.monitorTurnsEl) {
+      this.monitorTurnsEl.textContent = '0/3';
     }
-    
+
     const stats = this.runnerManager.getStats();
-    if (loopsEl) loopsEl.textContent = `${stats.runningLoops}건`;
+    if (this.monitorLoopsEl) this.monitorLoopsEl.textContent = `${stats.runningLoops}건`;
     
     const totalTests = stats.totalTests || 1;
     const completedLoops = stats.completedLoops || 0;
     const successRate = Math.round((completedLoops / totalTests) * 100);
-    if (successEl) successEl.textContent = `${successRate}%`;
+    if (this.monitorSuccessEl) this.monitorSuccessEl.textContent = `${successRate}%`;
     
   }
 

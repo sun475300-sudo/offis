@@ -21,6 +21,16 @@ export class GameLoop {
     this.drawCallbacks.push(cb);
   }
 
+  removeUpdate(cb: UpdateCallback): void {
+    const idx = this.updateCallbacks.indexOf(cb);
+    if (idx >= 0) this.updateCallbacks.splice(idx, 1);
+  }
+
+  removeDraw(cb: UpdateCallback): void {
+    const idx = this.drawCallbacks.indexOf(cb);
+    if (idx >= 0) this.drawCallbacks.splice(idx, 1);
+  }
+
   start(): void {
     if (this.running) return;
     this.running = true;

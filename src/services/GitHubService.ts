@@ -114,7 +114,12 @@ export class GitHubService {
 
     const data = await response.json();
     if (data.content) {
-      return new TextDecoder().decode(Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0)));
+      try {
+        return new TextDecoder().decode(Uint8Array.from(atob(data.content.replace(/\n/g, '')), c => c.charCodeAt(0)));
+      } catch {
+        console.warn('[GitHubService] Failed to decode file content');
+        return '';
+      }
     }
     return '';
   }

@@ -89,6 +89,15 @@ export class PerformanceOverlay {
     this.container.visible = this.visible;
   }
 
+  /** Clean up all PIXI resources */
+  destroy(): void {
+    this.fpsText.destroy();
+    this.memoryText.destroy();
+    this.agentText.destroy();
+    this.fpsGraph.destroy();
+    this.container.destroy({ children: true });
+  }
+
   update(fps: number, agentCount: number, taskCount: number): void {
     if (!this.visible) return;
 

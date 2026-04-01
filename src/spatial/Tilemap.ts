@@ -110,7 +110,6 @@ export class Tilemap implements ITilemap {
     }
 
     // Place desks in clusters
-    const deskPositions: GridCell[] = [];
     const deskZones = [
       { startCol: 2, startRow: 2, cols: 4, rows: 3 },
       { startCol: 8, startRow: 2, cols: 4, rows: 3 },
@@ -129,7 +128,6 @@ export class Tilemap implements ITilemap {
           const r = zone.startRow + dr;
           if (c < this.width - 1 && r < this.height - 1 && grid[r][c].type === TileType.Floor) {
             grid[r][c] = { type: TileType.Desk, walkable: false, occupantId: null, weight: Infinity };
-            deskPositions.push({ col: c, row: r });
           }
         }
       }

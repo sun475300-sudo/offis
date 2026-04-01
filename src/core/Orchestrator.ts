@@ -72,6 +72,8 @@ export class Orchestrator {
         const tasks = this.taskService.createTasksFromDecomposition(llmResponse.tasks);
         this.eventBus.emit(EventType.TasksParsed, { tasks, reasoning: llmResponse.reasoning });
         this.dispatchPendingTasks();
+      }).catch(err => {
+        console.error('[Orchestrator] Pipeline fallback failed:', err);
       });
     }
   }

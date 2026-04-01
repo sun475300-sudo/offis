@@ -124,6 +124,7 @@ export enum EventType {
   AgentStartedWork = 'agent:startedWork',
   AgentFinishedWork = 'agent:finishedWork',
   AgentPathBlocked = 'agent:pathBlocked',
+  MeetingStarted = 'meeting:started',
 
   // Pipeline events (CEO → Architect → Coder → Reviewer)
   PipelineCreated = 'pipeline:created',

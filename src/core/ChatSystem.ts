@@ -45,6 +45,11 @@ export class ChatSystem {
     this.listeners.push(listener);
   }
 
+  offMessage(listener: (message: ChatMessage) => void): void {
+    const idx = this.listeners.indexOf(listener);
+    if (idx >= 0) this.listeners.splice(idx, 1);
+  }
+
   private notifyListeners(message: ChatMessage): void {
     for (const listener of this.listeners) {
       listener(message);

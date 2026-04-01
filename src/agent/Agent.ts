@@ -36,6 +36,7 @@ export class Agent {
   private moveTarget: Vec2 | null = null;
   private avoidanceOffset: Vec2 = { x: 0, y: 0 };
   private occupiedCells: GridCell[] = [];
+  private stateChangeHandler!: (event: { payload: unknown }) => void;
 
   constructor(
     config: AgentConfig,
@@ -235,19 +236,17 @@ export class Agent {
   }
 
   private registerEventHandlers(): void {
-    // Listen for state change events (from behavior tree)
-    this.eventBus.on(EventType.AgentStateChanged, (event) => {
+    this.stateChangeHandler = (event) => {
       const payload = event.payload as { agentId: string; newState: AgentState };
-      if (payload.agentId !== this.id) return;
+      // Skip own events to avoid redundant path computation
+      if (payload.agentId === this.id) return;
+    };
+    this.eventBus.on(EventType.AgentStateChanged, this.stateChangeHandler as any);
+  }
 
-      if (payload.newState === AgentState.Returning && this.state === AgentState.Working) {
-        // Compute path home
-        const result = this.pathfinder.findPath(this.gridCell, this.homeDesk);
-        if (result.found) {
-          this.path = result.path.slice(1);
-        }
-      }
-    });
+  /** Clean up event listeners to prevent ghost handlers */
+  destroy(): void {
+    this.eventBus.off(EventType.AgentStateChanged, this.stateChangeHandler as any);
   }
 
   private getOccupiedCells(): GridCell[] {

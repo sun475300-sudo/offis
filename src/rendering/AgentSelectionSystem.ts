@@ -158,6 +158,17 @@ export class AgentSelectionSystem {
     this.updateDetailPopup(selected);
   }
 
+  /** Clean up all PIXI resources and event listeners */
+  destroy(app?: PIXI.Application): void {
+    if (app) {
+      app.stage.removeAllListeners();
+    }
+    this.selectionRing.destroy();
+    this.hoverHighlight.destroy();
+    this.detailPopup.destroy({ children: true });
+    this.onSelectCallback = null;
+  }
+
   /** Cache for finding agent by click position */
   private agentCache: AgentSnapshot[] = [];
 

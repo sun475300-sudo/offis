@@ -247,6 +247,15 @@ export class AgentRenderer {
     }
   }
 
+  /** Clean up all PIXI resources */
+  destroy(): void {
+    for (const [, visual] of this.agentVisuals) {
+      visual.container.destroy({ children: true });
+    }
+    this.agentVisuals.clear();
+    this.parentContainer.parent?.removeChild(this.parentContainer);
+  }
+
   /** Draw a simple pixel character (8x10 px style) */
   private drawPixelCharacter(gfx: PIXI.Graphics, role: string, tint: number): void {
     const s = 2; // pixel scale

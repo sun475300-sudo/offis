@@ -43,6 +43,7 @@ export class AgentManager {
     if (agent) {
       const snap = agent.getSnapshot();
       this.tilemap.setOccupant(snap.gridCell.col, snap.gridCell.row, null);
+      agent.destroy();
     }
     this.agents.delete(id);
   }

@@ -15,6 +15,15 @@ function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+/** Validate CSS color values to prevent CSS/SVG injection */
+function sanitizeColor(color: string): string {
+  // Allow hex, rgb(), rgba(), hsl(), hsla(), and named CSS colors
+  if (/^(#[0-9a-fA-F]{3,8}|rgb(a?)\([^)]+\)|hsl(a?)\([^)]+\)|var\(--[a-zA-Z0-9-]+\)|[a-zA-Z]{1,20})$/.test(color)) {
+    return color;
+  }
+  return '#888888'; // fallback for invalid colors
+}
+
 export class ChartRenderer {
   private container: HTMLElement | null = null;
   private charts: Map<string, HTMLElement> = new Map();
@@ -45,7 +54,7 @@ export class ChartRenderer {
       const height = (item.value / maxValue) * 100;
       barsHtml += `
         <div class="bar-item">
-          <div class="bar" style="height: ${height}%; background: ${escapeHtml(item.color)}">
+          <div class="bar" style="height: ${height}%; background: ${sanitizeColor(item.color)}">
             <span class="bar-value">${escapeHtml(String(item.value))}</span>
           </div>
           <div class="bar-label">${escapeHtml(item.label)}</div>
@@ -56,12 +65,18 @@ export class ChartRenderer {
     chart.innerHTML = `
       <div class="chart-header">
         <span class="chart-title">${escapeHtml(title)}</span>
-        <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="chart-close">×</button>
       </div>
       <div class="chart-body">
         ${barsHtml}
       </div>
     `;
+
+    const closeBtn = chart.querySelector('.chart-close')!;
+    closeBtn.addEventListener('click', () => {
+      chart.remove();
+      this.charts.delete(id);
+    });
 
     this.container?.appendChild(chart);
     this.charts.set(id, chart);
@@ -96,7 +111,7 @@ export class ChartRenderer {
     chart.innerHTML = `
       <div class="chart-header">
         <span class="chart-title">${escapeHtml(title)}</span>
-        <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="chart-close">×</button>
       </div>
       <div class="chart-body">
         <svg width="${width}" height="${height}" class="line-chart-svg">
@@ -109,6 +124,12 @@ export class ChartRenderer {
         </div>
       </div>
     `;
+
+    const closeBtn = chart.querySelector('.chart-close')!;
+    closeBtn.addEventListener('click', () => {
+      chart.remove();
+      this.charts.delete(id);
+    });
 
     this.container?.appendChild(chart);
     this.charts.set(id, chart);
@@ -135,7 +156,7 @@ export class ChartRenderer {
 
       const largeArc = angle > 180 ? 1 : 0;
 
-      paths += `<path d="M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${item.color}"/>`;
+      paths += `<path d="M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${sanitizeColor(item.color)}"/>`;
       currentAngle = endAngle;
     }
 
@@ -144,7 +165,7 @@ export class ChartRenderer {
       const percent = Math.round((item.value / total) * 100);
       legendHtml += `
         <div class="pie-legend-item">
-          <span class="pie-legend-color" style="background: ${escapeHtml(item.color)}"></span>
+          <span class="pie-legend-color" style="background: ${sanitizeColor(item.color)}"></span>
           <span class="pie-legend-label">${escapeHtml(item.label)}</span>
           <span class="pie-legend-value">${percent}%</span>
         </div>
@@ -154,7 +175,7 @@ export class ChartRenderer {
     chart.innerHTML = `
       <div class="chart-header">
         <span class="chart-title">${escapeHtml(title)}</span>
-        <button class="chart-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="chart-close">×</button>
       </div>
       <div class="chart-body pie-body">
         <svg width="100" height="100" class="pie-chart-svg">
@@ -165,6 +186,12 @@ export class ChartRenderer {
         </div>
       </div>
     `;
+
+    const closeBtn = chart.querySelector('.chart-close')!;
+    closeBtn.addEventListener('click', () => {
+      chart.remove();
+      this.charts.delete(id);
+    });
 
     this.container?.appendChild(chart);
     this.charts.set(id, chart);

@@ -117,6 +117,12 @@ export class ParticleSystem {
     }
   }
 
+  /** Clean up all PIXI resources */
+  destroy(): void {
+    this.particles.length = 0;
+    this.graphics.destroy();
+  }
+
   private addParticle(p: Particle): void {
     if (this.particles.length >= this.maxParticles) {
       this.particles.shift();

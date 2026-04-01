@@ -157,11 +157,11 @@ export class MeetingRoomRenderer {
     for (const room of this.rooms.values()) {
       if (room.glowGraphics) {
         this.container.removeChild(room.glowGraphics);
-        room.glowGraphics.destroy();
+        room.glowGraphics.destroy({ children: true });
       }
       if (room.labelGraphics) {
         this.container.removeChild(room.labelGraphics);
-        room.labelGraphics.destroy();
+        room.labelGraphics.destroy({ children: true });
       }
     }
     this.rooms.clear();

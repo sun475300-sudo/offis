@@ -61,6 +61,15 @@ export class MinimapRenderer {
     this.container.position.set(x, y);
   }
 
+  /** Clean up all PIXI resources */
+  destroy(): void {
+    this.background.destroy();
+    this.mapGraphics.destroy();
+    this.agentDots.destroy();
+    this.viewportRect.destroy();
+    this.container.destroy({ children: true });
+  }
+
   /** Render the static tilemap onto the minimap */
   renderMap(tilemap: Tilemap): void {
     this.mapCols = tilemap.getWidth();
