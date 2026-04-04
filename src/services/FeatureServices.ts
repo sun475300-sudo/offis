@@ -1,3 +1,5 @@
+import { testSuite } from './TestSuite';
+
 export interface AgentPersona {
   id: string;
   name: string;
@@ -291,5 +293,3 @@ export const themeManager = new ThemeManager();
 export const configManager = new ConfigManager();
 export const resourceMonitor = new ResourceMonitor();
 export const collaborationHub = new CollaborationHub();
-
-import { testSuite } from './TestSuite';
