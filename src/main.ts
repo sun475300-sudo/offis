@@ -104,6 +104,8 @@ class PixelOfficeApp {
     this.chatSystem = new ChatSystem();
     this.toastManager = new ToastManager();
     this.toastManager.init();
+    testSuite.loadSchedules();
+    testSuite.loadCustomScenarios();
 
     // HUD container (screen-space, not affected by camera)
     this.hudContainer = new PIXI.Container();
@@ -313,6 +315,18 @@ class PixelOfficeApp {
       this.updateStats();
       this.updateMonitoring();
       this.speechBubbleRenderer.update();
+
+      // Check test schedules
+      testSuite.checkSchedules((schedule) => {
+        this.logSystem(`📅 스케줄 실행: ${schedule.name}`, 'system');
+        testSuite.runStressTest({ agentCount: 10, concurrentTasks: 3, duration: 5, codeReviewCount: 3 })
+          .then(() => this.updateTestDashboard());
+      });
+
+      // Update test dashboard periodically
+      if (Math.random() < 0.02) {
+        this.updateTestDashboard();
+      }
     });
 
     this.gameLoop.onDraw(() => {
@@ -1093,6 +1107,68 @@ Meeting Collaboration Results:
     });
 
     this.cliEngine.registerCommand({
+      name: 'schedule',
+      aliases: ['스케줄'],
+      description: 'Add/remove test schedule',
+      usage: '/schedule [add|remove|list] [name] [minutes]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const schedules = testSuite.getSchedules();
+          if (schedules.length === 0) return '예약된 스케줄이 없습니다';
+          return schedules.map(s => `${s.name}: ${s.interval / 60000}분, ${s.enabled ? '활성' : '비활성'}`).join('\n');
+        }
+        
+        if (args[0] === 'add' || args[0] === '추가') {
+          if (!args[1] || !args[2]) return 'Usage: /schedule add <name> <minutes>';
+          const id = testSuite.addSchedule(args[1], parseInt(args[2]));
+          testSuite.loadSchedules();
+          this.logSystem(`📅 스케줄 추가: ${args[1]} (${args[2]}분)`, 'success');
+          return `Schedule added: ${args[1]} every ${args[2]} minutes`;
+        }
+        
+        if (args[0] === 'remove' || args[0] === '삭제') {
+          if (!args[1]) return 'Usage: /schedule remove <name>';
+          testSuite.removeSchedule(args[1]);
+          this.logSystem(`📅 스케줄 삭제: ${args[1]}`, 'success');
+          return `Schedule removed: ${args[1]}`;
+        }
+        
+        return 'Usage: /schedule [add|remove|list] [name] [minutes]';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'scenario',
+      aliases: ['시나리오'],
+      description: 'Run custom test scenarios',
+      usage: '/scenario [quick|standard|heavy|stress|list]',
+      handler: async (args) => {
+        const scenario = args[0] || 'standard';
+        
+        if (scenario === 'list' || scenario === '목록') {
+          const scenarios = testSuite.getCustomScenarios();
+          return scenarios.map(s => `${s.id}: ${s.name} - ${s.description}`).join('\n');
+        }
+        
+        this.logSystem(`🧪 시나리오 실행: ${scenario}`, 'system');
+        this.toastManager.info('Scenario', `${scenario} 실행 중...`);
+        
+        try {
+          const result = await testSuite.runCustomScenario(scenario);
+          const report = testSuite.generateReport(result);
+          this.logSystem(report, 'success');
+          this.toastManager.success('Scenario', `${scenario} 완료`);
+          testSuite.saveToHistory('stress', { scenario }, result);
+          this.updateTestDashboard();
+          return report;
+        } catch (err) {
+          this.logError(`시나리오 실행 실패: ${err}`);
+          return `Error: ${err}`;
+        }
+      },
+    });
+
+    this.cliEngine.registerCommand({
       name: 'table',
       aliases: ['회의테이블'],
       description: 'Place a meeting table zone',
@@ -1664,6 +1740,116 @@ Meeting Collaboration Results:
     const monitorPanel = document.getElementById('monitor-panel');
     monitorMinimizeBtn?.addEventListener('click', () => {
       monitorPanel?.classList.toggle('minimized');
+    });
+
+    // Test dashboard panel minimize
+    const testDashboardMinimizeBtn = document.getElementById('btn-minimize-test-dashboard');
+    const testDashboardPanel = document.getElementById('test-dashboard-panel');
+    testDashboardMinimizeBtn?.addEventListener('click', () => {
+      testDashboardPanel?.classList.toggle('minimized');
+    });
+
+    // Setup test scenario click handlers
+    this.setupTestDashboard();
+  }
+
+  private setupTestDashboard(): void {
+    const scenarioItems = document.querySelectorAll('.test-scenario-item');
+    
+    scenarioItems.forEach(item => {
+      item.addEventListener('click', async () => {
+        const scenario = item.getAttribute('data-scenario');
+        if (!scenario) return;
+        
+        this.toastManager.info('Test', `${scenario} 테스트 실행...`);
+        
+        switch (scenario) {
+          case 'stress':
+            await testSuite.runStressTest({ agentCount: 10, concurrentTasks: 3, duration: 5, codeReviewCount: 3 });
+            break;
+          case 'load':
+            await testSuite.runLoadTest(30, 5);
+            break;
+          case 'debate':
+            await testSuite.runDebateStressTest(5);
+            break;
+          case 'cicd':
+            await testSuite.runCICDFeedbackLoopTest(10);
+            break;
+          case 'meeting':
+            await testSuite.runMeetingCollaborationTest(6, 5);
+            break;
+        }
+        
+        this.updateTestDashboard();
+        this.toastManager.success('Test Complete', `${scenario} 테스트 완료`);
+      });
+    });
+  }
+
+  private updateTestDashboard(): void {
+    const history = testSuite.getHistory().slice(-20);
+    
+    // Update stats
+    const totalCount = history.length;
+    document.getElementById('test-total-count')!.textContent = String(totalCount);
+    
+    const successCount = history.filter(h => h.type !== 'cicd' || (h.result as any).failed === 0).length;
+    const successRate = totalCount > 0 ? Math.round(successCount / totalCount * 100) : 0;
+    document.getElementById('test-success-rate')!.textContent = `${successRate}%`;
+    
+    const avgTime = history.length > 0 
+      ? Math.round(history.reduce((sum, h) => sum + (h.result.time || h.result.duration || 0), 0) / history.length)
+      : 0;
+    document.getElementById('test-avg-time')!.textContent = `${avgTime}ms`;
+    
+    // Draw chart
+    this.drawTestChart(history);
+  }
+
+  private drawTestChart(history: any[]): void {
+    const canvas = document.getElementById('test-result-chart') as HTMLCanvasElement;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.fillStyle = '#1a1f26';
+    ctx.fillRect(0, 0, width, height);
+    
+    if (history.length === 0) {
+      ctx.fillStyle = '#888';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('테스트 결과 없음', width / 2, height / 2);
+      return;
+    }
+    
+    const maxTime = Math.max(...history.map(h => h.result.time || h.result.duration || 100), 100);
+    const barWidth = Math.min(30, (width - 20) / history.length - 4);
+    
+    history.slice(-10).forEach((h, i) => {
+      const time = h.result.time || h.result.duration || 0;
+      const barHeight = (time / maxTime) * (height - 20);
+      const x = 10 + i * (barWidth + 4);
+      const y = height - 10 - barHeight;
+      
+      const color = h.type === 'stress' ? '#9C27B0' 
+        : h.type === 'load' ? '#2196F3'
+        : h.type === 'debate' ? '#FF9800'
+        : h.type === 'cicd' ? '#4CAF50'
+        : '#00BCD4';
+      
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, barWidth, barHeight);
+      
+      ctx.fillStyle = '#aaa';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(h.type.slice(0, 3), x + barWidth / 2, height - 2);
     });
   }
 

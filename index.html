@@ -132,6 +132,64 @@
         </div>
       </div>
 
+      <!-- Test Dashboard Panel -->
+      <div class="test-dashboard-panel" id="test-dashboard-panel">
+        <div class="panel-header">
+          <span>📊 테스트 대시보드</span>
+          <button class="btn-minimize" id="btn-minimize-test-dashboard">−</button>
+        </div>
+        <div class="test-dashboard-content">
+          <div class="test-stats-row">
+            <div class="test-stat">
+              <span class="test-stat-label">테스트 수</span>
+              <span class="test-stat-value" id="test-total-count">0</span>
+            </div>
+            <div class="test-stat">
+              <span class="test-stat-label">성공률</span>
+              <span class="test-stat-value" id="test-success-rate">0%</span>
+            </div>
+            <div class="test-stat">
+              <span class="test-stat-label">평균 시간</span>
+              <span class="test-stat-value" id="test-avg-time">0ms</span>
+            </div>
+          </div>
+          <div class="test-chart-container">
+            <canvas id="test-result-chart" width="280" height="120"></canvas>
+          </div>
+          <div class="test-schedule-section">
+            <div class="test-schedule-header">🔄 스케줄</div>
+            <div class="test-schedule-list" id="test-schedule-list">
+              <div class="test-schedule-empty">예약된 테스트 없음</div>
+            </div>
+          </div>
+          <div class="test-scenarios-section">
+            <div class="test-scenarios-header">🧪 시나리오</div>
+            <div class="test-scenario-list" id="test-scenario-list">
+              <div class="test-scenario-item" data-scenario="stress">
+                <span class="scenario-name">부하 테스트</span>
+                <span class="scenario-desc">에이전트 동시 작업</span>
+              </div>
+              <div class="test-scenario-item" data-scenario="load">
+                <span class="scenario-name">부하 생성</span>
+                <span class="scenario-desc">대량 에이전트 스폰</span>
+              </div>
+              <div class="test-scenario-item" data-scenario="debate">
+                <span class="scenario-name">토론 테스트</span>
+                <span class="scenario-desc">다자간 토론</span>
+              </div>
+              <div class="test-scenario-item" data-scenario="cicd">
+                <span class="scenario-name">CI/CD 루프</span>
+                <span class="scenario-desc">피드백 루프</span>
+              </div>
+              <div class="test-scenario-item" data-scenario="meeting">
+                <span class="scenario-name">회의 협업</span>
+                <span class="scenario-desc">팀 협업 시뮬레이션</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Chat Panel -->
       <div class="chat-panel" id="chat-panel">
         <div class="panel-header">
@@ -224,6 +282,45 @@
       <div class="agent-state"></div>
     </div>
   </template>
+
+  <!-- Agent Context Menu -->
+  <div class="agent-context-menu" id="agent-context-menu">
+    <div class="context-menu-header" id="context-menu-header">Agent</div>
+    <div class="context-menu-item" id="ctx-follow">📷 카메라 추적 <span class="shortcut">F</span></div>
+    <div class="context-menu-item" id="ctx-info">📋 상세 정보 <span class="shortcut">I</span></div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" id="ctx-assign">📝 작업 배정 <span class="shortcut">A</span></div>
+    <div class="context-menu-item" id="ctx-recall">🏠 홈으로 복귀 <span class="shortcut">R</span></div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" id="ctx-meeting">🤝 회의 소집</div>
+    <div class="context-menu-item" id="ctx-pair">👥 페어 프로그래밍</div>
+  </div>
+
+  <!-- Keyboard Shortcuts Overlay -->
+  <div class="shortcuts-overlay" id="shortcuts-overlay">
+    <div class="shortcuts-panel">
+      <div class="shortcuts-title">⌨️ 키보드 단축키</div>
+      <div class="shortcut-group">
+        <div class="shortcut-group-title">카메라</div>
+        <div class="shortcut-row"><span class="desc">줌 인</span><span class="key">+</span></div>
+        <div class="shortcut-row"><span class="desc">줌 아웃</span><span class="key">-</span></div>
+        <div class="shortcut-row"><span class="desc">줌 리셋</span><span class="key">0</span></div>
+        <div class="shortcut-row"><span class="desc">카메라 리셋</span><span class="key">Home</span></div>
+      </div>
+      <div class="shortcut-group">
+        <div class="shortcut-group-title">에이전트</div>
+        <div class="shortcut-row"><span class="desc">다음 에이전트</span><span class="key">Tab</span></div>
+        <div class="shortcut-row"><span class="desc">추적 해제</span><span class="key">Esc</span></div>
+      </div>
+      <div class="shortcut-group">
+        <div class="shortcut-group-title">패널</div>
+        <div class="shortcut-row"><span class="desc">통계 토글</span><span class="key">S</span></div>
+        <div class="shortcut-row"><span class="desc">성능 토글</span><span class="key">P</span></div>
+        <div class="shortcut-row"><span class="desc">CLI 포커스</span><span class="key">/</span></div>
+        <div class="shortcut-row"><span class="desc">단축키 표시</span><span class="key">?</span></div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

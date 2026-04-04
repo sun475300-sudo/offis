@@ -359,6 +359,106 @@ export class TestSuite {
     localStorage.removeItem('test_history');
   }
 
+  private schedules: { id: string; name: string; interval: number; lastRun: number; enabled: boolean }[] = [];
+
+  addSchedule(name: string, intervalMinutes: number): string {
+    const id = `schedule-${Date.now()}`;
+    this.schedules.push({
+      id,
+      name,
+      interval: intervalMinutes * 60 * 1000,
+      lastRun: 0,
+      enabled: true,
+    });
+    this.saveSchedules();
+    return id;
+  }
+
+  removeSchedule(id: string): void {
+    this.schedules = this.schedules.filter(s => s.id !== id);
+    this.saveSchedules();
+  }
+
+  getSchedules() {
+    return this.schedules;
+  }
+
+  toggleSchedule(id: string, enabled: boolean): void {
+    const schedule = this.schedules.find(s => s.id === id);
+    if (schedule) {
+      schedule.enabled = enabled;
+      this.saveSchedules();
+    }
+  }
+
+  private saveSchedules(): void {
+    localStorage.setItem('test_schedules', JSON.stringify(this.schedules));
+  }
+
+  loadSchedules(): void {
+    const stored = localStorage.getItem('test_schedules');
+    if (stored) {
+      try {
+        this.schedules = JSON.parse(stored);
+      } catch {}
+    }
+  }
+
+  checkSchedules(callback: (schedule: any) => void): void {
+    const now = Date.now();
+    for (const schedule of this.schedules) {
+      if (schedule.enabled && (now - schedule.lastRun >= schedule.interval)) {
+        schedule.lastRun = now;
+        callback(schedule);
+      }
+    }
+  }
+
+  private customScenarios: { id: string; name: string; config: StressTestConfig; description: string }[] = [
+    { id: 'quick', name: '빠른 테스트', config: { agentCount: 5, concurrentTasks: 2, duration: 3, codeReviewCount: 2 }, description: '빠른烟雾测试' },
+    { id: 'standard', name: '표준 테스트', config: { agentCount: 20, concurrentTasks: 5, duration: 10, codeReviewCount: 5 }, description: '일반적인 부하 테스트' },
+    { id: 'heavy', name: '무거운 테스트', config: { agentCount: 50, concurrentTasks: 10, duration: 30, codeReviewCount: 15 }, description: '고부하 시뮬레이션' },
+    { id: 'stress', name: '스트레스 테스트', config: { agentCount: 100, concurrentTasks: 20, duration: 60, codeReviewCount: 30 }, description: '최대 부하 상태' },
+  ];
+
+  addCustomScenario(name: string, config: StressTestConfig, description: string): string {
+    const id = `custom-${Date.now()}`;
+    this.customScenarios.push({ id, name, config, description });
+    this.saveCustomScenarios();
+    return id;
+  }
+
+  removeCustomScenario(id: string): void {
+    this.customScenarios = this.customScenarios.filter(s => s.id !== id);
+    this.saveCustomScenarios();
+  }
+
+  getCustomScenarios() {
+    return this.customScenarios;
+  }
+
+  runCustomScenario(id: string, callbacks?: any): Promise<StressTestResult> {
+    const scenario = this.customScenarios.find(s => s.id === id);
+    if (!scenario) {
+      return Promise.reject(new Error('Scenario not found'));
+    }
+    return this.runStressTest(scenario.config, callbacks);
+  }
+
+  private saveCustomScenarios(): void {
+    localStorage.setItem('test_custom_scenarios', JSON.stringify(this.customScenarios.filter(s => s.id.startsWith('custom-'))));
+  }
+
+  loadCustomScenarios(): void {
+    const stored = localStorage.getItem('test_custom_scenarios');
+    if (stored) {
+      try {
+        const custom = JSON.parse(stored);
+        this.customScenarios = [...this.customScenarios.filter(s => !s.id.startsWith('custom-')), ...custom];
+      } catch {}
+    }
+  }
+
   generateReport(result: StressTestResult): string {
     const lines = [
       '═══════════════════════════════════════',
