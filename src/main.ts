@@ -69,7 +69,7 @@ class PixelOfficeApp {
   constructor() {
     this.app = new PIXI.Application({
       width: window.innerWidth,
-      height: window.innerHeight - 180,
+      height: window.innerHeight - 150,
       backgroundColor: 0x1a1f26,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
@@ -91,7 +91,7 @@ class PixelOfficeApp {
     this.orchestrator = new Orchestrator(this.agentManager, this.eventBus);
     
     const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight - 180;
+    const screenHeight = window.innerHeight - 150;
     this.camera = new CameraController(this.rootContainer, screenWidth, screenHeight);
     this.tilemapRenderer = new TilemapRenderer(this.gameContainer);
     this.tilemapRenderer.renderMap(this.tilemap);
@@ -110,7 +110,7 @@ class PixelOfficeApp {
 
     // Phase 1: Minimap
     this.minimapRenderer = new MinimapRenderer(this.hudContainer, 200, 120);
-    this.minimapRenderer.setPosition(16, screenHeight - 150);
+    this.minimapRenderer.setPosition(220, screenHeight - 140);
     this.minimapRenderer.renderMap(this.tilemap);
 
     // Phase 1: Performance Overlay
@@ -172,11 +172,14 @@ class PixelOfficeApp {
     this.loadHistory();
     this.setupChatPanel();
     this.setupThemeToggle();
+    this.setupContextMenu();
+    this.setupKeyboardShortcuts();
 
     this.gameLoop.start();
     this.logSystem('Pixel Office MAS Dashboard initialized');
     this.logSystem('📋 코드 리뷰 오피스가 준비되었습니다.');
     this.logSystem('CLI에 코드를 입력하고 "검수" 또는 "리뷰" 명령으로 코드 리뷰를 요청하세요.');
+    this.logSystem('💡 ? 키를 눌러 키보드 단축키를 확인하세요.');
   }
 
   private createTilemap(): Tilemap {
@@ -326,7 +329,7 @@ class PixelOfficeApp {
         (MAP_WIDTH * TILE_SIZE) / 2,
         (MAP_HEIGHT * TILE_SIZE) / 2,
         window.innerWidth,
-        window.innerHeight - 180,
+        window.innerHeight - 150,
         1,
       );
 
@@ -753,6 +756,64 @@ class PixelOfficeApp {
         });
         this.soundManager.playTaskAssigned();
         return `Assigned "${description}" to ${agent.name} (${role})`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'review',
+      aliases: ['검수', '리뷰'],
+      description: 'Start a code review on editor code or pasted code',
+      usage: '/review [code-snippet]',
+      handler: async (args) => {
+        // Get code from args, or from the code editor, or use a sample
+        let code = args.join(' ');
+        if (!code) {
+          const editorEl = document.getElementById('code-textarea') as HTMLTextAreaElement;
+          code = editorEl?.value?.trim() || '';
+        }
+        if (!code) {
+          return 'Usage: /review <code> — or paste code in the editor first';
+        }
+
+        const projectName = `Review-${new Date().toLocaleTimeString()}`;
+        this.startCodeReview(code, projectName).catch(err => {
+          this.logError(`Review error: ${err}`);
+        });
+        return `Code review started (${code.length} chars) — review agents activated`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'fullreview',
+      aliases: ['전체리뷰'],
+      description: 'Run review + debate pipeline on code',
+      usage: '/fullreview [code-snippet]',
+      handler: async (args) => {
+        let code = args.join(' ');
+        if (!code) {
+          const editorEl = document.getElementById('code-textarea') as HTMLTextAreaElement;
+          code = editorEl?.value?.trim() || '';
+        }
+        if (!code) {
+          return 'Usage: /fullreview <code> — or paste code in the editor first';
+        }
+
+        // Step 1: Run parallel review
+        const projectName = `FullReview-${new Date().toLocaleTimeString()}`;
+        this.toastManager.info('Full Review', '전체 리뷰 파이프라인 시작');
+        this.chatSystem.sendSystemMessage('전체 리뷰 파이프라인이 시작됩니다: 리뷰 → 토론 → 결론');
+
+        this.startCodeReview(code, projectName).then(async () => {
+          // Step 2: After review completes, start debate
+          this.toastManager.info('Debate', '리뷰 완료 — 토론 세션으로 전환');
+          const session = await this.debateManager.startDebate(code, projectName);
+          await this.runDebateWithVisualization(session.id);
+          this.toastManager.success('Full Review', '전체 리뷰 파이프라인 완료!');
+        }).catch(err => {
+          this.logError(`Full review error: ${err}`);
+        });
+
+        return `Full review pipeline started (review → debate) on ${code.length} chars`;
       },
     });
 
@@ -1186,6 +1247,87 @@ class PixelOfficeApp {
       }
     });
 
+    // Save to GitHub button
+    const saveGithubBtn = document.getElementById('btn-save-github') as HTMLButtonElement;
+    const githubTokenInput = document.getElementById('github-token') as HTMLInputElement;
+    saveGithubBtn?.addEventListener('click', async () => {
+      const token = githubTokenInput?.value?.trim();
+      if (!token) {
+        this.toastManager.error('GitHub', 'GitHub 토큰을 입력해주세요 (ghp_...)');
+        return;
+      }
+      if (!currentRepoUrl) {
+        this.toastManager.error('GitHub', '저장할 레포지토리가 없습니다');
+        return;
+      }
+      if (activeTabIndex < 0 || !openTabs[activeTabIndex]) {
+        this.toastManager.error('GitHub', '저장할 파일을 선택해주세요');
+        return;
+      }
+
+      const tab = openTabs[activeTabIndex];
+      const parsed = parseGitHubUrl(currentRepoUrl);
+      if (!parsed) return;
+
+      // Update content from editor
+      tab.content = editorContent.value;
+
+      try {
+        this.toastManager.info('GitHub', `${tab.name} 저장 중...`);
+        // Get current file SHA for update
+        const getUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/${tab.path}?ref=${parsed.branch}`;
+        const getRes = await fetch(getUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+        const fileData = await getRes.json();
+        const sha = fileData.sha;
+
+        // Push updated content
+        const putUrl = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/${tab.path}`;
+        const putRes = await fetch(putUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `Update ${tab.name} via Pixel Office`,
+            content: btoa(unescape(encodeURIComponent(tab.content))),
+            sha,
+            branch: parsed.branch,
+          }),
+        });
+
+        if (putRes.ok) {
+          this.toastManager.success('GitHub', `${tab.name} 저장 완료!`);
+          this.chatSystem.sendSystemMessage(`GitHub에 ${tab.name} 파일이 저장되었습니다`);
+          this.logSystem(`Saved ${tab.name} to GitHub`, 'success');
+        } else {
+          const err = await putRes.json();
+          this.toastManager.error('GitHub', `저장 실패: ${err.message || putRes.status}`);
+        }
+      } catch (err) {
+        this.toastManager.error('GitHub', `저장 중 오류: ${err}`);
+      }
+    });
+
+    // Download button — download currently open file
+    const downloadBtn = document.getElementById('btn-download') as HTMLButtonElement;
+    downloadBtn?.addEventListener('click', () => {
+      if (activeTabIndex < 0 || !openTabs[activeTabIndex]) {
+        this.toastManager.error('Download', '다운로드할 파일을 선택해주세요');
+        return;
+      }
+      const tab = openTabs[activeTabIndex];
+      const content = editorContent.value || tab.content;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = tab.name;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.toastManager.success('Download', `${tab.name} 다운로드 완료`);
+    });
+
     // Monitor attached files for GitHub URLs
     const observer = setInterval(() => {
       const githubFile = attachedFiles.find(f => f.type === 'github' && f.githubUrl);
@@ -1222,8 +1364,8 @@ class PixelOfficeApp {
 
   private setupResize(): void {
     window.addEventListener('resize', () => {
-      this.app.renderer.resize(window.innerWidth, window.innerHeight - 180);
-      this.camera.updateScreenSize(window.innerWidth, window.innerHeight - 180);
+      this.app.renderer.resize(window.innerWidth, window.innerHeight - 150);
+      this.camera.updateScreenSize(window.innerWidth, window.innerHeight - 150);
     });
   }
 
@@ -1891,6 +2033,226 @@ class PixelOfficeApp {
 
       this.logSystem(`테마 변경: ${newTheme === 'dark' ? '다크 모드' : '라이트 모드'}`, 'system');
     });
+  }
+
+  private setupContextMenu(): void {
+    const menu = document.getElementById('agent-context-menu') as HTMLDivElement;
+    const menuHeader = document.getElementById('context-menu-header') as HTMLDivElement;
+    let contextAgentId: string | null = null;
+
+    const hideMenu = () => {
+      menu.classList.remove('visible');
+      contextAgentId = null;
+    };
+
+    // Right-click on canvas shows context menu if agent is under cursor
+    const canvas = document.getElementById('game-canvas') as HTMLDivElement;
+    canvas?.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+
+      // Find agent near click position using the selection system's cache
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Convert screen coords to world coords (approximate using camera)
+      const zoom = this.camera.getZoom();
+      const worldX = mouseX / zoom + (this.rootContainer.x < 0 ? -this.rootContainer.x / zoom : 0);
+      const worldY = mouseY / zoom + (this.rootContainer.y < 0 ? -this.rootContainer.y / zoom : 0);
+
+      const snapshots = this.agentManager.getAllAgents().map(a => a.getSnapshot());
+      let closestAgent: { id: string; name: string; role: string; dist: number } | null = null;
+      for (const snap of snapshots) {
+        const dx = snap.position.x - worldX;
+        const dy = snap.position.y - worldY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 30 && (!closestAgent || dist < closestAgent.dist)) {
+          closestAgent = { id: snap.id, name: snap.name, role: snap.role, dist };
+        }
+      }
+
+      if (closestAgent) {
+        contextAgentId = closestAgent.id;
+        menuHeader.textContent = `${closestAgent.name} (${closestAgent.role})`;
+        menu.style.left = `${e.clientX}px`;
+        menu.style.top = `${e.clientY}px`;
+        menu.classList.add('visible');
+      } else {
+        hideMenu();
+      }
+    });
+
+    // Hide on click outside
+    document.addEventListener('click', hideMenu);
+
+    // Context menu actions
+    document.getElementById('ctx-follow')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const agent = this.agentManager.getAgent(contextAgentId);
+      if (agent) {
+        this.camera.followPosition(agent.getPosition());
+        this.agentSelection.selectAgent(contextAgentId);
+        this.soundManager.playSelect();
+      }
+      hideMenu();
+    });
+
+    document.getElementById('ctx-info')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const agent = this.agentManager.getAgent(contextAgentId);
+      if (agent) {
+        const snap = agent.getSnapshot();
+        const info = [
+          `ID: ${snap.id}`,
+          `Name: ${snap.name}`,
+          `Role: ${snap.role}`,
+          `State: ${snap.state}`,
+          `Position: (${snap.position.x.toFixed(0)}, ${snap.position.y.toFixed(0)})`,
+          `Grid: (${snap.gridCell.col}, ${snap.gridCell.row})`,
+          snap.currentTask ? `Task: ${snap.currentTask.description}` : 'No active task',
+          snap.progress > 0 ? `Progress: ${(snap.progress * 100).toFixed(0)}%` : '',
+        ].filter(Boolean);
+        for (const line of info) this.logSystem(line, 'system');
+      }
+      hideMenu();
+    });
+
+    document.getElementById('ctx-assign')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const input = document.getElementById('cli-input') as HTMLInputElement;
+      input.value = `/assign ${this.agentManager.getAgent(contextAgentId)?.role || 'frontend'} `;
+      input.focus();
+      hideMenu();
+    });
+
+    document.getElementById('ctx-recall')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const agent = this.agentManager.getAgent(contextAgentId);
+      if (agent) {
+        const snap = agent.getSnapshot();
+        agent.assignTask({
+          id: `recall-${Date.now()}`,
+          description: '홈 데스크로 복귀',
+          requiredRole: snap.role,
+          targetDesk: snap.gridCell, // will be overridden to home
+          priority: TaskPriority.Normal,
+          status: TaskStatus.Assigned,
+          assignedAgentId: contextAgentId,
+          estimatedDuration: 2,
+          progress: 0,
+          parentTaskId: null,
+          createdAt: Date.now(),
+        });
+        this.logSystem(`${snap.name}을(를) 홈으로 복귀시킵니다`, 'system');
+      }
+      hideMenu();
+    });
+
+    document.getElementById('ctx-meeting')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const agent = this.agentManager.getAgent(contextAgentId);
+      if (agent) {
+        const meeting = this.collaborationSystem.callMeeting(
+          MeetingType.StandUp,
+          [agent.role],
+          `${agent.name} 요청 회의`,
+          10,
+        );
+        if (meeting) {
+          this.soundManager.playMeetingStart();
+          this.logSystem(`${agent.name}의 역할 그룹 회의 소집됨`, 'success');
+        }
+      }
+      hideMenu();
+    });
+
+    document.getElementById('ctx-pair')?.addEventListener('click', () => {
+      if (!contextAgentId) return;
+      const agent = this.agentManager.getAgent(contextAgentId);
+      if (agent) {
+        const partnerRole = agent.role === AgentRole.Frontend ? AgentRole.Backend : AgentRole.Frontend;
+        const session = this.collaborationSystem.startPairProgramming(agent.role, partnerRole, 'Context menu pair session');
+        if (session) {
+          this.logSystem(`페어 프로그래밍 시작: ${agent.name}`, 'success');
+        }
+      }
+      hideMenu();
+    });
+  }
+
+  private setupKeyboardShortcuts(): void {
+    const shortcutsOverlay = document.getElementById('shortcuts-overlay') as HTMLDivElement;
+
+    document.addEventListener('keydown', (e) => {
+      // Don't trigger when typing in input fields
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case '+':
+        case '=':
+          this.camera.setZoom(this.camera.getZoom() + 0.25);
+          break;
+        case '-':
+          this.camera.setZoom(this.camera.getZoom() - 0.25);
+          break;
+        case '0':
+          this.camera.setZoom(1);
+          break;
+        case 'Home':
+          this.camera.centerOn((MAP_WIDTH * TILE_SIZE) / 2, (MAP_HEIGHT * TILE_SIZE) / 2);
+          this.camera.setZoom(1);
+          break;
+        case 'Escape':
+          this.camera.clearFollow();
+          this.agentSelection.deselect();
+          shortcutsOverlay?.classList.remove('visible');
+          break;
+        case 'Tab':
+          e.preventDefault();
+          this.cycleNextAgent();
+          break;
+        case 's':
+        case 'S':
+          this.statsChart.toggle();
+          break;
+        case 'p':
+        case 'P':
+          this.performanceOverlay.toggle();
+          break;
+        case '/':
+          e.preventDefault();
+          (document.getElementById('cli-input') as HTMLInputElement)?.focus();
+          break;
+        case '?':
+          shortcutsOverlay?.classList.toggle('visible');
+          break;
+      }
+    });
+
+    // Click outside overlay to close
+    shortcutsOverlay?.addEventListener('click', (e) => {
+      if (e.target === shortcutsOverlay) {
+        shortcutsOverlay.classList.remove('visible');
+      }
+    });
+  }
+
+  private cycleNextAgent(): void {
+    const agents = this.agentManager.getAllAgents();
+    if (agents.length === 0) return;
+
+    const currentId = this.agentSelection.getSelectedAgentId();
+    let nextIndex = 0;
+    if (currentId) {
+      const currentIndex = agents.findIndex(a => a.id === currentId);
+      nextIndex = (currentIndex + 1) % agents.length;
+    }
+
+    const next = agents[nextIndex];
+    this.agentSelection.selectAgent(next.id);
+    this.camera.followPosition(next.getPosition());
+    this.soundManager.playSelect();
   }
 }
 
