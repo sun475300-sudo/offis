@@ -28,6 +28,7 @@ import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 import { testSuite, StressTestConfig, StressTestResult, systemReport } from './services/TestSuite';
+import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub } from './services/FeatureServices';
 
 const TILE_SIZE = 32;
 const MAP_WIDTH = 40;
@@ -1407,6 +1408,165 @@ Meeting Collaboration Results:
         
         const report = testSuite.getDetailedAgentReport();
         this.logSystem(report, 'system');
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'persona',
+      aliases: ['페르소나'],
+      description: 'Show agent personality info',
+      usage: '/persona [agent-id]',
+      handler: async (args) => {
+        if (args[0]) {
+          const desc = agentPersona.getPersonaDescription(args[0]);
+          this.logSystem(desc || '페르소나 정보를 찾을 수 없습니다', 'system');
+          return desc;
+        }
+        const all = agentPersona.getAllPersonas();
+        return all.map(p => `${p.id}: ${p.name} (${p.personality})`).join('\n');
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'queue',
+      aliases: ['큐'],
+      description: 'Task queue management',
+      usage: '/queue [add|list|clear] [name] [priority]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const queue = taskQueue.getQueue();
+          return `대기 작업: ${queue.length}개\n` + queue.slice(0, 10).map(t => `${t.priority} - ${t.name} (${t.status})`).join('\n');
+        }
+        if (args[0] === 'add' || args[0] === '추가') {
+          const id = taskQueue.addTask(args[1] || '작업', parseInt(args[2]) || 5, 300);
+          return `작업 추가: ${id}`;
+        }
+        if (args[0] === 'clear' || args[0] === '초기화') {
+          taskQueue.clear();
+          return '큐 초기화됨';
+        }
+        const stats = taskQueue.getStats();
+        return `대기: ${stats.pending} | 실행: ${stats.running} | 완료: ${stats.completed} | 실패: ${stats.failed}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'snippet',
+      aliases: ['스니펫'],
+      description: 'Code snippet management',
+      usage: '/snippet [add|search|list] [name] [code]',
+      handler: async (args) => {
+        if (args[0] === 'add' || args[0] === '추가') {
+          const id = snippetManager.add(args[1] || 'snip', 'javascript', args.slice(2).join(' '));
+          return `스니펫 저장: ${id}`;
+        }
+        if (args[0] === 'search' || args[0] === '검색') {
+          const results = snippetManager.search(args[1] || '');
+          return results.map(s => `${s.name} (${s.language}): ${s.code.slice(0, 30)}...`).join('\n') || '검색 결과 없음';
+        }
+        const all = snippetManager.getAll();
+        return `저장된 스니펫: ${all.length}개`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'theme',
+      aliases: ['테마'],
+      description: 'Theme management',
+      usage: '/theme [list|set|add] [name]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const themes = themeManager.getThemes();
+          return themes.map((t, i) => `${i}: ${t.name}`).join('\n');
+        }
+        if (args[0] === 'set' || args[0] === '설정') {
+          themeManager.setTheme(parseInt(args[1]) || 0);
+          this.logSystem(`테마 변경: ${themeManager.getCurrentTheme().name}`, 'success');
+          return `테마 설정됨`;
+        }
+        return `현재 테마: ${themeManager.getCurrentTheme().name}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'config',
+      aliases: ['설정'],
+      description: 'Config export/import',
+      usage: '/config [export|import]',
+      handler: async (args) => {
+        if (args[0] === 'export' || args[0] === '내보내기') {
+          configManager.downloadConfig();
+          this.logSystem('📥 설정 파일 다운로드', 'success');
+          return '설정 내보내기 완료';
+        }
+        return 'Usage: /config export';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'resource',
+      aliases: ['리소스'],
+      description: 'Show resource usage',
+      usage: '/resource',
+      handler: async () => {
+        const report = resourceMonitor.getReport();
+        this.logSystem(report, 'system');
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'collab',
+      aliases: ['협업'],
+      description: 'Collaboration hub',
+      usage: '/collab [create|list|end] [type]',
+      handler: async (args) => {
+        if (args[0] === 'create' || args[0] === '생성') {
+          const id = collaborationHub.createSession(args[1] || 'general', ['user1', 'user2']);
+          return `세션 생성: ${id}`;
+        }
+        if (args[0] === 'list' || args[0] === '목록') {
+          const sessions = collaborationHub.getSessions();
+          return sessions.map(s => `${s.type}: ${s.participants}명, ${s.duration}s`).join('\n') || '활성 세션 없음';
+        }
+        return `활성 세션: ${collaborationHub.getSessionCount()}개`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'stress-full',
+      aliases: ['전체부하'],
+      description: 'Full system stress test',
+      usage: '/stress-full',
+      handler: async () => {
+        this.logSystem('🔴 전체 시스템 부하 테스트 시작', 'system');
+        this.toastManager.info('Full Stress', '전체 테스트 실행 중...');
+        
+        const results: string[] = [];
+        
+        const r1 = await testSuite.runStressTest({ agentCount: 30, concurrentTasks: 5, duration: 8, codeReviewCount: 10 });
+        results.push(`부하: ${r1.totalTasksCompleted} 작업, ${r1.failedTasks} 실패`);
+        
+        const r2 = await testSuite.runLoadTest(50, 8);
+        results.push(`부하생성: ${r2.activeAgents} 에이전트, FPS드롭 ${r2.fpsDrop.toFixed(1)}`);
+        
+        const r3 = await testSuite.runDebateStressTest(8);
+        results.push(`토론: ${r3.turns} 턴, ${r3.errors} 에러`);
+        
+        const r4 = await testSuite.runCICDFeedbackLoopTest(30);
+        results.push(`CI/CD: ${r4.success} 성공, ${r4.failed} 실패`);
+        
+        const r5 = await testSuite.runMeetingCollaborationTest(10, 8);
+        results.push(`회의: ${r5.messages} 메시지, ${r5.conflicts} 충돌`);
+        
+        const report = `═══════════════════════════════════\n   전체 시스템 부하 테스트 결과\n═══════════════════════════════════\n${results.join('\n')}\n═══════════════════════════════════`;
+        
+        this.logSystem(report, 'success');
+        this.toastManager.success('Full Stress', '전체 테스트 완료');
+        testSuite.saveToHistory('stress', { full: true }, { results });
+        this.updateTestDashboard();
+        
         return report;
       },
     });
