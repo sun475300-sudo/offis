@@ -27,6 +27,7 @@ import { ChatSystem } from './core/ChatSystem';
 import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
+import { testSuite, StressTestConfig, StressTestResult } from './services/TestSuite';
 
 const TILE_SIZE = 32;
 const MAP_WIDTH = 40;
@@ -847,6 +848,132 @@ class PixelOfficeApp {
           return `Nothing to remove at (${col}, ${row})`;
         }
         return 'Usage: /desk <add|remove> <col> <row>';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'test',
+      aliases: ['스트레스', '부하'],
+      description: 'Run stress test on the system',
+      usage: '/test [agents] [concurrent] [duration]',
+      handler: async (args) => {
+        const agentCount = parseInt(args[0]) || 10;
+        const concurrent = parseInt(args[1]) || 3;
+        const duration = parseInt(args[2]) || 5;
+        
+        this.logSystem(`🔧 부하 테스트 시작: 에이전트 ${agentCount}개, 동시 ${concurrent}개, ${duration}초`, 'system');
+        this.toastManager.info('Stress Test', `에이전트 ${agentCount}개 테스트 중...`);
+        
+        const config: StressTestConfig = {
+          agentCount,
+          concurrentTasks: concurrent,
+          duration,
+          codeReviewCount: Math.floor(agentCount / 3),
+        };
+        
+        const result = await testSuite.runStressTest(config, {
+          onAgentSpawn: (count) => {
+            if (count % 5 === 0) {
+              this.logSystem(`에이전트 생성 중: ${count}/${agentCount}`, 'system');
+            }
+          },
+          onTaskComplete: (taskId, duration) => {
+            this.logSystem(`✅ 작업 완료: ${taskId} (${duration}ms)`, 'system');
+          },
+          onError: (error) => {
+            this.logError(error);
+          },
+        });
+        
+        const report = testSuite.generateReport(result);
+        this.logSystem(report, 'success');
+        this.toastManager.success('Stress Test', `완료: ${result.totalTasksCompleted}개 작업, ${result.failedTasks}개 실패`);
+        
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'loadtest',
+      aliases: ['부하테스트'],
+      description: 'Run load test - spawn many agents',
+      usage: '/loadtest [count] [rate]',
+      handler: async (args) => {
+        const targetAgents = parseInt(args[0]) || 50;
+        const spawnRate = parseInt(args[1]) || 10;
+        
+        this.logSystem(`🚀 부하 테스트: ${targetAgents}개 에이전트 생성`, 'system');
+        this.toastManager.info('Load Test', `${targetAgents}개 에이전트 생성 중...`);
+        
+        const result = await testSuite.runLoadTest(targetAgents, spawnRate);
+        
+        const report = `
+Load Test Results:
+  에이전트: ${result.activeAgents}
+  생성 시간: ${result.spawnTime}ms
+  메모리 사용: ${(result.memoryUsed / 1024).toFixed(1)}KB
+  FPS 드롭: ${result.fpsDrop.toFixed(1)}`;
+        
+        this.logSystem(report, result.fpsDrop < 20 ? 'success' : 'error');
+        this.toastManager[result.fpsDrop < 20 ? 'success' : 'error']('Load Test', `FPS 드롭: ${result.fpsDrop.toFixed(1)}`);
+        
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'debate-test',
+      aliases: ['토론테스트'],
+      description: 'Run debate stress test',
+      usage: '/debate-test [participants]',
+      handler: async (args) => {
+        const participants = parseInt(args[0]) || 5;
+        
+        this.logSystem(`💬 토론 스트레스 테스트: ${participants}명 참여`, 'system');
+        this.toastManager.info('Debate Test', `${participants}명 토론 시뮬레이션...`);
+        
+        const result = await testSuite.runDebateStressTest(participants);
+        
+        const report = `
+Debate Stress Results:
+  참여자: ${participants}
+  라운드: 10
+  총 턴: ${result.turns}
+  에러: ${result.errors}
+  소요 시간: ${result.duration}ms`;
+        
+        this.logSystem(report, result.errors === 0 ? 'success' : 'error');
+        this.toastManager.success('Debate Test', `${result.turns}턴 완료, ${result.errors}에러`);
+        
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'cicd-test',
+      aliases: ['씨아이시디테스트'],
+      description: 'Run CI/CD feedback loop test',
+      usage: '/cicd-test [iterations]',
+      handler: async (args) => {
+        const iterations = parseInt(args[0]) || 20;
+        
+        this.logSystem(`⚙️ CI/CD 피드백 루프 테스트: ${iterations}회 반복`, 'system');
+        this.toastManager.info('CI/CD Test', `${iterations}회 반복 테스트 중...`);
+        
+        const result = await testSuite.runCICDFeedbackLoopTest(iterations);
+        
+        const report = `
+CI/CD Feedback Loop Results:
+  반복: ${iterations}
+  성공: ${result.success}
+  실패: ${result.failed}
+ 成功率: ${(result.success / iterations * 100).toFixed(1)}%
+  평균 시간: ${result.avgTime.toFixed(1)}ms`;
+        
+        this.logSystem(report, result.failed === 0 ? 'success' : 'error');
+        this.toastManager[result.failed === 0 ? 'success' : 'error']('CI/CD Test', `성공 ${result.success}, 실패 ${result.failed}`);
+        
+        return report;
       },
     });
 
