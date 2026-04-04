@@ -478,6 +478,32 @@ body {
   opacity: 0.7;
 }
 
+.test-chart-types {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.chart-type-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.chart-type-btn:hover {
+  background: var(--accent-purple);
+}
+
+.chart-type-btn.active {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
 .test-schedule-item {
   display: flex;
   justify-content: space-between;

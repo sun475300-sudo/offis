@@ -106,6 +106,7 @@ class PixelOfficeApp {
     this.toastManager.init();
     testSuite.loadSchedules();
     testSuite.loadCustomScenarios();
+    testSuite.loadNotifications();
 
     // HUD container (screen-space, not affected by camera)
     this.hudContainer = new PIXI.Container();
@@ -1107,6 +1108,86 @@ Meeting Collaboration Results:
     });
 
     this.cliEngine.registerCommand({
+      name: 'export',
+      aliases: ['내보내기'],
+      description: 'Export test results to CSV or JSON',
+      usage: '/export [csv|json]',
+      handler: async (args) => {
+        const format = args[0] || 'json';
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+        
+        if (format === 'csv') {
+          const csv = testSuite.exportToCSV();
+          testSuite.downloadFile(csv, `test-results-${timestamp}.csv`, 'text/csv');
+          this.logSystem('📥 CSV 파일 다운로드 시작', 'success');
+          return 'CSV exported and downloaded';
+        } else {
+          const json = testSuite.exportToJSON();
+          testSuite.downloadFile(json, `test-results-${timestamp}.json`, 'application/json');
+          this.logSystem('📥 JSON 파일 다운로드 시작', 'success');
+          return 'JSON exported and downloaded';
+        }
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'notify',
+      aliases: ['알림'],
+      description: 'Configure test notifications',
+      usage: '/notify [list|set|clear] [type] [value]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const notifs = testSuite.getNotifications();
+          return notifs.map(n => `${n.type}: ${n.enabled ? '활성' : '비활성'} (기준: ${n.threshold})`).join('\n');
+        }
+        
+        if (args[0] === 'set' || args[0] === '설정') {
+          if (!args[1] || args[2] === undefined) return 'Usage: /notify set <type> <on|off|threshold>';
+          const type = args[1];
+          const value = args[2];
+          
+          if (value === 'on') {
+            testSuite.setNotification(type, true);
+            this.logSystem(`🔔 알림 활성화: ${type}`, 'success');
+          } else if (value === 'off') {
+            testSuite.setNotification(type, false);
+            this.logSystem(`🔕 알림 비활성화: ${type}`, 'success');
+          } else {
+            testSuite.setNotification(type, true, parseInt(value));
+            this.logSystem(`🔔 알림 기준 변경: ${type} = ${value}`, 'success');
+          }
+          return `Notification ${type} updated`;
+        }
+        
+        if (args[0] === 'clear' || args[0] === '초기화') {
+          testSuite.clearHistory();
+          this.logSystem('🔔 알림 초기화', 'success');
+          return 'Notifications reset';
+        }
+        
+        return 'Usage: /notify [list|set|clear] [type] [value]';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'agent-perf',
+      aliases: ['에이전트성능'],
+      description: 'Show agent performance metrics',
+      usage: '/agent-perf [clear]',
+      handler: async (args) => {
+        if (args[0] === 'clear') {
+          testSuite.clearAgentMetrics();
+          this.logSystem('📊 에이전트 성능 데이터 초기화', 'success');
+          return 'Agent metrics cleared';
+        }
+        
+        const report = testSuite.getAgentPerformanceReport();
+        this.logSystem(report, 'system');
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
       name: 'schedule',
       aliases: ['스케줄'],
       description: 'Add/remove test schedule',
@@ -1751,6 +1832,7 @@ Meeting Collaboration Results:
 
     // Setup test scenario click handlers
     this.setupTestDashboard();
+    this.setupChartTypeButtons();
   }
 
   private setupTestDashboard(): void {
@@ -1827,29 +1909,81 @@ Meeting Collaboration Results:
       ctx.fillText('테스트 결과 없음', width / 2, height / 2);
       return;
     }
-    
-    const maxTime = Math.max(...history.map(h => h.result.time || h.result.duration || 100), 100);
-    const barWidth = Math.min(30, (width - 20) / history.length - 4);
-    
-    history.slice(-10).forEach((h, i) => {
-      const time = h.result.time || h.result.duration || 0;
-      const barHeight = (time / maxTime) * (height - 20);
-      const x = 10 + i * (barWidth + 4);
-      const y = height - 10 - barHeight;
+
+    const chartType = (document.querySelector('.chart-type-btn.active') as HTMLElement)?.dataset.chart || 'bar';
+    const data = history.slice(-10);
+    const colors: Record<string, string> = {
+      stress: '#9C27B0', load: '#2196F3', debate: '#FF9800', cicd: '#4CAF50', meeting: '#00BCD4'
+    };
+
+    if (chartType === 'bar') {
+      const maxTime = Math.max(...data.map(h => h.result.time || h.result.duration || 100), 100);
+      const barWidth = Math.min(30, (width - 20) / data.length - 4);
       
-      const color = h.type === 'stress' ? '#9C27B0' 
-        : h.type === 'load' ? '#2196F3'
-        : h.type === 'debate' ? '#FF9800'
-        : h.type === 'cicd' ? '#4CAF50'
-        : '#00BCD4';
+      data.forEach((h, i) => {
+        const time = h.result.time || h.result.duration || 0;
+        const barHeight = (time / maxTime) * (height - 20);
+        const x = 10 + i * (barWidth + 4);
+        const y = height - 10 - barHeight;
+        
+        ctx.fillStyle = colors[h.type] || '#888';
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        ctx.fillStyle = '#aaa';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(h.type.slice(0, 3), x + barWidth / 2, height - 2);
+      });
+    } else if (chartType === 'line') {
+      const maxTime = Math.max(...data.map(h => h.result.time || h.result.duration || 100), 100);
       
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, barWidth, barHeight);
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
       
-      ctx.fillStyle = '#aaa';
-      ctx.font = '8px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(h.type.slice(0, 3), x + barWidth / 2, height - 2);
+      data.forEach((h, i) => {
+        const time = h.result.time || h.result.duration || 0;
+        const x = 10 + i * ((width - 20) / (data.length - 1 || 1));
+        const y = height - 10 - (time / maxTime) * (height - 20);
+        
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        
+        ctx.fillStyle = colors[h.type] || '#888';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      ctx.stroke();
+    } else if (chartType === 'pie') {
+      const total = data.reduce((sum, h) => sum + (h.result.tasks || h.result.messages || 1), 0);
+      let startAngle = 0;
+      
+      data.forEach((h, i) => {
+        const value = h.result.tasks || h.result.messages || 1;
+        const sliceAngle = (value / total) * Math.PI * 2;
+        
+        ctx.fillStyle = colors[h.type] || '#888';
+        ctx.beginPath();
+        ctx.moveTo(width / 2, height / 2);
+        ctx.arc(width / 2, height / 2, Math.min(width, height) / 2 - 10, startAngle, startAngle + sliceAngle);
+        ctx.closePath();
+        ctx.fill();
+        
+        startAngle += sliceAngle;
+      });
+    }
+  }
+
+  private setupChartTypeButtons(): void {
+    const buttons = document.querySelectorAll('.chart-type-btn');
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.updateTestDashboard();
+      });
     });
   }
 

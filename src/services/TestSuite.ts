@@ -459,6 +459,122 @@ export class TestSuite {
     }
   }
 
+  exportToCSV(): string {
+    const history = this.getHistory();
+    if (history.length === 0) return 'No data to export';
+    
+    const headers = ['ID', 'Type', 'Timestamp', 'Config', 'Result'];
+    const rows = history.map(h => [
+      h.id,
+      h.type,
+      new Date(h.timestamp).toISOString(),
+      JSON.stringify(h.config),
+      JSON.stringify(h.result),
+    ]);
+    
+    return [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+  }
+
+  exportToJSON(): string {
+    return JSON.stringify(this.getHistory(), null, 2);
+  }
+
+  downloadFile(content: string, filename: string, type: string): void {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private notifications: { type: string; enabled: boolean; threshold: number }[] = [
+    { type: 'failure', enabled: true, threshold: 1 },
+    { type: 'slow', enabled: true, threshold: 5000 },
+    { type: 'memory', enabled: false, threshold: 100 },
+    { type: 'rate-limit', enabled: true, threshold: 3 },
+  ];
+
+  getNotifications() {
+    return this.notifications;
+  }
+
+  setNotification(type: string, enabled: boolean, threshold?: number): void {
+    const notif = this.notifications.find(n => n.type === type);
+    if (notif) {
+      notif.enabled = enabled;
+      if (threshold !== undefined) notif.threshold = threshold;
+      this.saveNotifications();
+    }
+  }
+
+  private saveNotifications(): void {
+    localStorage.setItem('test_notifications', JSON.stringify(this.notifications));
+  }
+
+  loadNotifications(): void {
+    const stored = localStorage.getItem('test_notifications');
+    if (stored) {
+      try {
+        this.notifications = JSON.parse(stored);
+      } catch {}
+    }
+  }
+
+  checkNotification(result: any): string[] {
+    const alerts: string[] = [];
+    
+    if (result.failedTasks > this.notifications.find(n => n.type === 'failure')!.threshold) {
+      alerts.push(`⚠️ 실패 작업: ${result.failedTasks}개 (기준: ${this.notifications.find(n => n.type === 'failure')!.threshold})`);
+    }
+    
+    if (result.duration * 1000 > this.notifications.find(n => n.type === 'slow')!.threshold) {
+      alerts.push(`🐌 느린 실행: ${result.duration.toFixed(1)}s (기준: ${this.notifications.find(n => n.type === 'slow')!.threshold}ms)`);
+    }
+    
+    if (result.rateLimitHits > this.notifications.find(n => n.type === 'rate-limit')!.threshold) {
+      alerts.push(`🚨 Rate Limit: ${result.rateLimitHits}회 (기준: ${this.notifications.find(n => n.type === 'rate-limit')!.threshold})`);
+    }
+    
+    return alerts;
+  }
+
+  private agentMetrics: Map<string, { tasks: number; avgTime: number; errors: number }> = new Map();
+
+  recordAgentMetric(agentId: string, time: number, success: boolean): void {
+    const current = this.agentMetrics.get(agentId) || { tasks: 0, avgTime: 0, errors: 0 };
+    current.tasks++;
+    current.avgTime = (current.avgTime * (current.tasks - 1) + time) / current.tasks;
+    if (!success) current.errors++;
+    this.agentMetrics.set(agentId, current);
+  }
+
+  getAgentMetrics(): { agentId: string; tasks: number; avgTime: number; errors: number }[] {
+    return Array.from(this.agentMetrics.entries()).map(([agentId, m]) => ({
+      agentId, ...m,
+    }));
+  }
+
+  getAgentPerformanceReport(): string {
+    const metrics = this.getAgentMetrics();
+    if (metrics.length === 0) return '에이전트 성능 데이터가 없습니다';
+    
+    const sorted = [...metrics].sort((a, b) => b.tasks - a.tasks);
+    const lines = ['=== 에이전트 성능 리포트 ===', ''];
+    
+    for (const m of sorted) {
+      const successRate = m.tasks > 0 ? ((m.tasks - m.errors) / m.tasks * 100).toFixed(1) : 0;
+      lines.push(`${m.agentId}: ${m.tasks}개 작업, 평균 ${m.avgTime.toFixed(0)}ms,成功率 ${successRate}%`);
+    }
+    
+    return lines.join('\n');
+  }
+
+  clearAgentMetrics(): void {
+    this.agentMetrics.clear();
+  }
+
   generateReport(result: StressTestResult): string {
     const lines = [
       '═══════════════════════════════════════',
