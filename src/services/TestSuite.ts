@@ -3,6 +3,21 @@ export interface StressTestConfig {
   concurrentTasks: number;
   duration: number;
   codeReviewCount: number;
+  networkLatency?: number;
+  agentTypes?: AgentTypeConfig[];
+}
+
+export interface AgentTypeConfig {
+  type: 'architect' | 'security' | 'performance' | 'developer' | 'reviewer';
+  count: number;
+}
+
+export interface TestHistory {
+  id: string;
+  type: 'stress' | 'load' | 'debate' | 'cicd' | 'meeting';
+  timestamp: number;
+  config: any;
+  result: any;
 }
 
 export interface StressTestResult {
@@ -33,6 +48,18 @@ export class TestSuite {
   private githubCalls: number = 0;
   private rateLimitHits: number = 0;
   private responseTimes: number[] = [];
+  private history: TestHistory[] = [];
+  private latency: number = 0;
+
+  setNetworkLatency(ms: number): void {
+    this.latency = ms;
+  }
+
+  private async simulatedDelay(): Promise<void> {
+    if (this.latency > 0) {
+      await new Promise(resolve => setTimeout(resolve, this.latency));
+    }
+  }
 
   async runStressTest(
     config: StressTestConfig,
@@ -110,7 +137,7 @@ export class TestSuite {
     const taskStart = Date.now();
     
     try {
-      // Simulate work with random delay
+      await this.simulatedDelay();
       const delay = Math.random() * 100 + 50;
       await new Promise(resolve => setTimeout(resolve, delay));
       
@@ -135,13 +162,12 @@ export class TestSuite {
     const startTime = Date.now();
     
     try {
-      // Simulate GitHub API calls
+      await this.simulatedDelay();
       this.githubCalls += Math.floor(Math.random() * 5) + 3;
       
-      // Simulate API rate limiting (10% chance)
       if (Math.random() < 0.1) {
         this.rateLimitHits++;
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for rate limit
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       const delay = Math.random() * 200 + 100;
@@ -249,6 +275,88 @@ export class TestSuite {
 
   getResults(): StressTestResult[] {
     return this.results;
+  }
+
+  async runAgentTypeTest(types: AgentTypeConfig[]): Promise<{ type: string; tasks: number; time: number }[]> {
+    console.log(`[AgentTypeTest] Testing ${types.length} agent types`);
+    
+    const results: { type: string; tasks: number; time: number }[] = [];
+    
+    for (const agentType of types) {
+      const startTime = Date.now();
+      let tasks = 0;
+      
+      for (let i = 0; i < agentType.count; i++) {
+        await this.simulatedDelay();
+        const delay = Math.random() * 50 + 20;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        tasks += Math.floor(Math.random() * 5) + 1;
+      }
+      
+      results.push({
+        type: agentType.type,
+        tasks,
+        time: Date.now() - startTime,
+      });
+    }
+    
+    return results;
+  }
+
+  async runMeetingCollaborationTest(teamSize: number, rounds: number): Promise<{ participants: number; rounds: number; messages: number; conflicts: number }> {
+    console.log(`[MeetingTest] ${teamSize} participants, ${rounds} rounds`);
+    
+    let messages = 0;
+    let conflicts = 0;
+    
+    for (let round = 0; round < rounds; round++) {
+      for (let i = 0; i < teamSize; i++) {
+        await this.simulatedDelay();
+        messages++;
+        
+        if (Math.random() < 0.15) {
+          conflicts++;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    
+    return { participants: teamSize, rounds, messages, conflicts };
+  }
+
+  saveToHistory(type: TestHistory['type'], config: any, result: any): void {
+    const entry: TestHistory = {
+      id: `test-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      type,
+      timestamp: Date.now(),
+      config,
+      result,
+    };
+    this.history.push(entry);
+    
+    if (this.history.length > 100) {
+      this.history = this.history.slice(-100);
+    }
+    
+    localStorage.setItem('test_history', JSON.stringify(this.history.slice(-20)));
+  }
+
+  getHistory(): TestHistory[] {
+    if (this.history.length === 0) {
+      const stored = localStorage.getItem('test_history');
+      if (stored) {
+        try {
+          this.history = JSON.parse(stored);
+        } catch {}
+      }
+    }
+    return this.history;
+  }
+
+  clearHistory(): void {
+    this.history = [];
+    localStorage.removeItem('test_history');
   }
 
   generateReport(result: StressTestResult): string {

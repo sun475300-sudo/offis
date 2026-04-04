@@ -978,6 +978,121 @@ CI/CD Feedback Loop Results:
     });
 
     this.cliEngine.registerCommand({
+      name: 'agent-test',
+      aliases: ['에이전트테스트'],
+      description: 'Test agent types individually',
+      usage: '/agent-test [arch:count] [sec:count] [perf:count]',
+      handler: async (args) => {
+        const types: { type: 'architect' | 'security' | 'performance' | 'developer' | 'reviewer'; count: number }[] = [];
+        
+        for (const arg of args) {
+          const [type, count] = arg.split(':');
+          if (type && count) {
+            types.push({ type: type as any, count: parseInt(count) || 1 });
+          }
+        }
+        
+        if (types.length === 0) {
+          types.push({ type: 'architect', count: 5 }, { type: 'security', count: 5 }, { type: 'performance', count: 5 });
+        }
+        
+        this.logSystem(`🧪 에이전트 타입 테스트: ${types.map(t => `${t.type}:${t.count}`).join(', ')}`, 'system');
+        this.toastManager.info('Agent Type Test', '테스트 실행 중...');
+        
+        const result = await testSuite.runAgentTypeTest(types);
+        
+        const report = result.map(r => `  ${r.type}: ${r.tasks} tasks in ${r.time}ms`).join('\n');
+        this.logSystem(`에이전트 타입 테스트 결과:\n${report}`, 'success');
+        this.toastManager.success('Agent Type Test', `${result.length}개 타입 테스트 완료`);
+        
+        testSuite.saveToHistory('stress', { types }, result);
+        return `Agent Type Results:\n${report}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'meeting-test',
+      aliases: ['회의테스트'],
+      description: 'Test meeting collaboration',
+      usage: '/meeting-test [participants] [rounds]',
+      handler: async (args) => {
+        const participants = parseInt(args[0]) || 8;
+        const rounds = parseInt(args[1]) || 5;
+        
+        this.logSystem(`🏢 회의 협업 테스트: ${participants}명, ${rounds}라운드`, 'system');
+        this.toastManager.info('Meeting Test', '협업 시뮬레이션...');
+        
+        const result = await testSuite.runMeetingCollaborationTest(participants, rounds);
+        
+        const report = `
+Meeting Collaboration Results:
+  참여자: ${result.participants}
+  라운드: ${result.rounds}
+  메시지: ${result.messages}
+  충돌: ${result.conflicts}
+  충돌률: ${(result.conflicts / result.messages * 100).toFixed(1)}%`;
+        
+        this.logSystem(report, result.conflicts < result.messages * 0.2 ? 'success' : 'error');
+        this.toastManager[result.conflicts < result.messages * 0.2 ? 'success' : 'error']('Meeting Test', `메시지 ${result.messages}, 충돌 ${result.conflicts}`);
+        
+        testSuite.saveToHistory('meeting', { participants, rounds }, result);
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'latency',
+      aliases: ['지연'],
+      description: 'Set network latency for tests',
+      usage: '/latency [ms]',
+      handler: async (args) => {
+        const ms = parseInt(args[0]) || 0;
+        testSuite.setNetworkLatency(ms);
+        
+        this.logSystem(`🌐 네트워크 지연 설정: ${ms}ms`, 'system');
+        this.toastManager.info('Latency', ms > 0 ? `${ms}ms 지연 활성화` : '지연 비활성화');
+        
+        return `Network latency set to ${ms}ms`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'history',
+      aliases: ['히스토리'],
+      description: 'Show test history',
+      usage: '/history [count]',
+      handler: async (args) => {
+        const count = parseInt(args[0]) || 10;
+        const history = testSuite.getHistory().slice(-count);
+        
+        if (history.length === 0) {
+          return '테스트 히스토리가 없습니다';
+        }
+        
+        const report = history.map(h => {
+          const time = new Date(h.timestamp).toLocaleTimeString('ko-KR');
+          return `[${time}] ${h.type}: ${JSON.stringify(h.result).slice(0, 50)}...`;
+        }).join('\n');
+        
+        this.logSystem(`📜 테스트 히스토리 (${history.length}개):\n${report}`, 'system');
+        return `Test History:\n${report}`;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'clear-history',
+      aliases: ['히스토리초기화'],
+      description: 'Clear test history',
+      usage: '/clear-history',
+      handler: async () => {
+        testSuite.clearHistory();
+        this.logSystem('🗑️ 테스트 히스토리 초기화됨', 'success');
+        this.toastManager.success('History', '히스토리 초기화 완료');
+        return 'Test history cleared';
+      },
+    });
+
+    this.cliEngine.registerCommand({
       name: 'table',
       aliases: ['회의테이블'],
       description: 'Place a meeting table zone',
