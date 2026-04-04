@@ -28,7 +28,7 @@ import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
 import { testSuite, StressTestConfig, StressTestResult, systemReport } from './services/TestSuite';
-import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub } from './services/FeatureServices';
+import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, analysisDashboard, mobileSupport } from './services/FeatureServices';
 
 const TILE_SIZE = 32;
 const MAP_WIDTH = 40;
@@ -1647,6 +1647,40 @@ Meeting Collaboration Results:
         
         this.logSystem('📥 전체 데이터 내보내기 완료', 'success');
         return 'Full data exported';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'analyze',
+      aliases: ['분석'],
+      description: 'Show analysis dashboard metrics',
+      usage: '/analyze [heatmap|report]',
+      handler: async (args) => {
+        if (args[0] === 'heatmap' || args[0] === '히트맵') {
+          const heatmap = analysisDashboard.getHeatmapData();
+          return Object.entries(heatmap).map(([k, v]) => `${k}: ${v}회`).join('\n') || '데이터 없음';
+        }
+        if (args[0] === 'report' || args[0] === '리포트') {
+          const report = analysisDashboard.generateReport();
+          this.logSystem(report, 'system');
+          return report;
+        }
+        
+        analysisDashboard.recordMetric('test', 'sample', Math.random() * 100);
+        return '분석 데이터 기록됨. /analyze report로 확인';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'device',
+      aliases: ['디바이스'],
+      description: 'Show device/mobile info',
+      usage: '/device',
+      handler: async () => {
+        const info = mobileSupport.getDeviceInfo();
+        const mobileStr = info.isMobile ? 'Yes' : 'No';
+        const touchStr = mobileSupport.isTouchDevice() ? 'Yes' : 'No';
+        return 'Mobile: ' + mobileStr + '\nOrientation: ' + info.orientation + '\nScreen: ' + info.width + 'x' + info.height + '\nTouch: ' + touchStr;
       },
     });
   }

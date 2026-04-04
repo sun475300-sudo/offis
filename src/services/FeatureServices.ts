@@ -262,11 +262,11 @@ FPS: ${m.fps}
 }
 
 export class CollaborationHub {
-  private activeSessions: Map<string, { participants: string[]; startedAt: number; type: string }> = new Map();
+  private activeSessions: Map<string, { participants: string[]; startedAt: number; type: string; messages: { sender: string; content: string; timestamp: number }[] }> = new Map();
 
   createSession(type: string, participants: string[]): string {
     const id = `session-${Date.now()}`;
-    this.activeSessions.set(id, { participants, startedAt: Date.now(), type });
+    this.activeSessions.set(id, { participants, startedAt: Date.now(), type, messages: [] });
     return id;
   }
 
@@ -284,7 +284,116 @@ export class CollaborationHub {
   getSessionCount(): number {
     return this.activeSessions.size;
   }
+
+  addMessage(sessionId: string, sender: string, content: string): void {
+    const session = this.activeSessions.get(sessionId);
+    if (session) {
+      session.messages.push({ sender, content, timestamp: Date.now() });
+    }
+  }
+
+  getMessages(sessionId: string): { sender: string; content: string; timestamp: number }[] {
+    return this.activeSessions.get(sessionId)?.messages || [];
+  }
+
+  broadcastToAll(content: string): void {
+    for (const session of this.activeSessions.values()) {
+      session.messages.push({ sender: 'system', content, timestamp: Date.now() });
+    }
+  }
 }
+
+export class AnalysisDashboard {
+  private metrics: Map<string, { timestamp: number; data: any }[]> = new Map();
+
+  recordMetric(category: string, key: string, value: number): void {
+    if (!this.metrics.has(category)) {
+      this.metrics.set(category, []);
+    }
+    
+    this.metrics.get(category)!.push({ timestamp: Date.now(), data: { key, value } });
+    
+    // Keep only last 1000 entries per category
+    const entries = this.metrics.get(category)!;
+    if (entries.length > 1000) {
+      this.metrics.set(category, entries.slice(-1000));
+    }
+  }
+
+  getMetrics(category: string): { timestamp: number; data: any }[] {
+    return this.metrics.get(category) || [];
+  }
+
+  getHeatmapData(): Record<string, number> {
+    const heatmap: Record<string, number> = {};
+    
+    for (const entries of this.metrics.values()) {
+      for (const entry of entries) {
+        const hour = new Date(entry.timestamp).getHours();
+        heatmap[`hour-${hour}`] = (heatmap[`hour-${hour}`] || 0) + 1;
+      }
+    }
+    
+    return heatmap;
+  }
+
+  generateReport(): string {
+    const lines = ['═══ 분석 대시보드 리포트 ═══', ''];
+    
+    for (const [category, entries] of this.metrics.entries()) {
+      const avgValue = entries.reduce((sum, e) => sum + (e.data.value || 0), 0) / Math.max(1, entries.length);
+      lines.push(`${category}: ${entries.length}개 데이터, 평균: ${avgValue.toFixed(2)}`);
+    }
+    
+    lines.push('', '═══ 히트맵 데이터 ═══');
+    const heatmap = this.getHeatmapData();
+    Object.entries(heatmap).forEach(([k, v]) => lines.push(`${k}: ${v}회`));
+    
+    return lines.join('\n');
+  }
+}
+
+export class MobileSupport {
+  private isMobile: boolean = false;
+  private orientation: 'portrait' | 'landscape' = 'portrait';
+
+  constructor() {
+    this.detectDevice();
+    window.addEventListener('resize', () => this.detectDevice());
+    window.addEventListener('orientationchange', () => this.detectDevice());
+  }
+
+  private detectDevice(): void {
+    this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    this.orientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+  }
+
+  getDeviceInfo(): { isMobile: boolean; orientation: string; width: number; height: number } {
+    return {
+      isMobile: this.isMobile,
+      orientation: this.orientation,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }
+
+  applyMobileStyles(): void {
+    if (this.isMobile) {
+      document.body.classList.add('mobile-view');
+      document.body.classList.remove('desktop-view');
+    } else {
+      document.body.classList.add('desktop-view');
+      document.body.classList.remove('mobile-view');
+    }
+  }
+
+  isTouchDevice(): boolean {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  }
+}
+
+export const analysisDashboard = new AnalysisDashboard();
+export const mobileSupport = new MobileSupport();
 
 export const agentPersona = new AgentPersonaSystem();
 export const taskQueue = new TaskQueueManager();

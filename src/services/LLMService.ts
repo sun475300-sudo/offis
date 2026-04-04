@@ -53,17 +53,165 @@ export const TASK_DECOMPOSITION_TOOLS = [
 ];
 
 export interface LLMServiceConfig {
-  provider: 'mock' | 'claude' | 'minimax';
+  provider: 'mock' | 'claude' | 'minimax' | 'openai';
   apiKey?: string;
   endpoint?: string;
   model?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 export class LLMService {
   private config: LLMServiceConfig;
+  private decisionHistory: { prompt: string; decision: string; timestamp: number }[] = [];
 
   constructor(config: LLMServiceConfig = { provider: 'mock' }) {
     this.config = config;
+  }
+
+  /**
+   * Real-time decision making for agents
+   */
+  async makeDecision(context: string, options: string[]): Promise<string> {
+    const decision = await this.callLLM(`Context: ${context}\nOptions: ${options.join(', ')}\nChoose the best option and explain why.`);
+    
+    this.decisionHistory.push({
+      prompt: context,
+      decision,
+      timestamp: Date.now(),
+    });
+    
+    if (this.decisionHistory.length > 100) {
+      this.decisionHistory = this.decisionHistory.slice(-100);
+    }
+    
+    return decision;
+  }
+
+  /**
+   * Analyze code and provide suggestions
+   */
+  async analyzeCode(code: string, language: string): Promise<string> {
+    return await this.callLLM(`Analyze this ${language} code and provide improvement suggestions:\n\n${code.slice(0, 2000)}`);
+  }
+
+  /**
+   * Generate agent response based on personality
+   */
+  generateAgentResponse(agentId: string, message: string, personality: string): string {
+    const templates = {
+      'architect': [`분석 완료. 구조적으로 개선이 필요합니다.`, `시스템 설계 관점에서 검토结果表明...`],
+      'security': [`보안 취약점을 발견했습니다.`, `코드审计结果: 위험 요소 감지`],
+      'performance': [`성능 최적화가 필요합니다.`, `프로파일링 결과: 병목 구간 확인`],
+      'developer': [`작업 진행중입니다.`, `구현 완료 phases...`],
+    };
+    
+    const type = agentId.split('-')[0] as keyof typeof templates;
+    const responses = templates[type] || ['처리중입니다.', '확인했습니다.'];
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  /**
+   * Get decision history
+   */
+  getDecisionHistory(): typeof this.decisionHistory {
+    return this.decisionHistory;
+  }
+
+  private async callLLM(prompt: string): Promise<string> {
+    switch (this.config.provider) {
+      case 'claude':
+        return await this.callClaudeSimple(prompt);
+      case 'openai':
+        return await this.callOpenAI(prompt);
+      case 'minimax':
+        return await this.callMinimaxSimple(prompt);
+      default:
+        return this.mockResponse(prompt);
+    }
+  }
+
+  private async callClaudeSimple(prompt: string): Promise<string> {
+    if (!this.config.apiKey) return this.mockResponse(prompt);
+    
+    try {
+      const response = await fetch(this.config.endpoint || 'https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.config.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: this.config.model || 'claude-sonnet-4-20250514',
+          max_tokens: this.config.maxTokens || 512,
+          temperature: this.config.temperature || 0.7,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      
+      const data = await response.json();
+      return data.content?.[0]?.text || this.mockResponse(prompt);
+    } catch {
+      return this.mockResponse(prompt);
+    }
+  }
+
+  private async callOpenAI(prompt: string): Promise<string> {
+    if (!this.config.apiKey) return this.mockResponse(prompt);
+    
+    try {
+      const response = await fetch(this.config.endpoint || 'https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model || 'gpt-4',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: this.config.temperature || 0.7,
+        }),
+      });
+      
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
+    } catch {
+      return this.mockResponse(prompt);
+    }
+  }
+
+  private async callMinimaxSimple(prompt: string): Promise<string> {
+    if (!this.config.apiKey) return this.mockResponse(prompt);
+    
+    try {
+      const response = await fetch(this.config.endpoint || 'https://api.minimax.chat/v1/text/chatcompletion_pro', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.config.model || 'abab6.5s-chat',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
+    } catch {
+      return this.mockResponse(prompt);
+    }
+  }
+
+  private mockResponse(prompt: string): string {
+    const responses = [
+      '분석 완료. 작업을 진행하겠습니다.',
+      '컨텍스트를 이해했습니다. 다음 단계로 이동합니다.',
+      '검토 결과 문제없음. 처리를 계속합니다.',
+      '결정 완료. 실행을 시작합니다.',
+    ];
+    return responses[Math.floor(Math.random() * responses.length)];
   }
 
   /**
