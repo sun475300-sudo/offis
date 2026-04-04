@@ -971,9 +971,17 @@ class PixelOfficeApp {
         for (const ghFile of githubFiles) {
           const githubUrl = ghFile.githubUrl;
           if (!githubUrl) continue;
-          const parsed = this.gitHubService.parseRepoUrl(githubUrl);
-          if (parsed) {
-            await this.handleGitHubReview(parsed.owner, parsed.repo, command);
+          
+          // Check if it's a PR URL first
+          const prParsed = this.gitHubService.parsePRUrl(githubUrl);
+          if (prParsed) {
+            await this.handlePRReview(prParsed.owner, prParsed.repo, prParsed.prNumber);
+          } else {
+            // Regular repo URL
+            const parsed = this.gitHubService.parseRepoUrl(githubUrl);
+            if (parsed) {
+              await this.handleGitHubReview(parsed.owner, parsed.repo, command);
+            }
           }
         }
         attachedFiles.length = 0;
@@ -1663,6 +1671,66 @@ class PixelOfficeApp {
     } catch (error) {
       this.toastManager.error('GitHub Error', `${error}`);
       this.logError(`GitHub 분석 실패: ${error}`);
+    }
+  }
+
+  private async handlePRReview(owner: string, repo: string, prNumber: number): Promise<void> {
+    this.toastManager.info('PR Review', `#${prNumber} 분석 준비 중...`);
+    this.logSystem(`📋 PR #${prNumber} 리뷰 시작: ${owner}/${repo}`, 'system');
+
+    try {
+      this.toastManager.info('Fetching', 'PR 정보 가져오는 중...');
+      
+      // Get PR details
+      const pr = await this.gitHubService.getPullRequest(owner, repo, prNumber);
+      
+      this.logSystem(`📝 PR: ${pr.title}`, 'system');
+      this.logSystem(`👤 작성자: ${pr.author} | 변경파일: ${pr.changedFiles}개 (+${pr.additions} -${pr.deletions})`, 'system');
+      this.logSystem(`🔀 ${pr.headBranch} → ${pr.baseBranch}`, 'system');
+
+      // Get PR files
+      this.toastManager.info('Fetching', '변경 파일 가져오는 중...');
+      const prFiles = await this.gitHubService.getPullRequestFiles(owner, repo, prNumber);
+      
+      this.logSystem(`📂 변경된 파일: ${prFiles.length}개`, 'system');
+      
+      // Build code for review with patch info
+      const codeToReview = prFiles.map(file => {
+        const statusIcon = file.status === 'added' ? '🟢' : file.status === 'removed' ? '🔴' : file.status === 'modified' ? '🟡' : '🔵';
+        return `// ${statusIcon} ${file.filename} (${file.status})\n// +${file.additions} -${file.deletions}\n${file.patch || '(no diff available)'}`;
+      }).join('\n\n---\n\n');
+
+      // Move review agents to workspace for PR review
+      const reviewAgents = ['review-architect', 'review-security', 'review-performance'];
+      for (const agentId of reviewAgents) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (agent) {
+          agent.assignTask({
+            id: `pr-review-${agentId}`,
+            description: `PR #${prNumber} 리뷰 중`,
+            requiredRole: agent.role,
+            targetDesk: { col: 15 + reviewAgents.indexOf(agentId) * 3, row: 15 },
+            priority: TaskPriority.High,
+            status: TaskStatus.Assigned,
+            assignedAgentId: agentId,
+            estimatedDuration: 5,
+            progress: 0,
+            parentTaskId: null,
+            createdAt: Date.now(),
+          });
+        }
+      }
+
+      // Start review with PR diff code
+      const projectName = `PR-Review-${prNumber}`;
+      await this.startCodeReview(codeToReview, projectName);
+      
+      this.toastManager.success('PR Complete', `#${prNumber} 리뷰 완료`);
+      this.logSystem(`✅ PR #${prNumber} 리뷰 완료`, 'success');
+      
+    } catch (error) {
+      this.toastManager.error('PR Error', `${error}`);
+      this.logError(`PR 리뷰 실패: ${error}`);
     }
   }
 

@@ -37,6 +37,29 @@ export interface RepoAnalysis {
   structure: GitHubFile[];
 }
 
+export interface GitHubPullRequest {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  author: string;
+  createdAt: string;
+  headBranch: string;
+  baseBranch: string;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+}
+
+export interface GitHubPRFile {
+  filename: string;
+  status: 'added' | 'removed' | 'modified' | 'renamed';
+  additions: number;
+  deletions: number;
+  patch?: string;
+  contentsUrl: string;
+}
+
 export class GitHubService {
   private token: string = '';
   private baseUrl: string = 'https://api.github.com';
@@ -188,6 +211,65 @@ export class GitHubService {
       };
     }
     return null;
+  }
+
+  parsePRUrl(url: string): { owner: string; repo: string; prNumber: number } | null {
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+    if (match) {
+      return {
+        owner: match[1],
+        repo: match[2],
+        prNumber: parseInt(match[3]),
+      };
+    }
+    return null;
+  }
+
+  async getPullRequest(owner: string, repo: string, prNumber: number): Promise<GitHubPullRequest> {
+    const url = `${this.baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}`;
+    const response = await fetch(url, {
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      number: data.number,
+      title: data.title,
+      body: data.body || '',
+      state: data.state,
+      author: data.user.login,
+      createdAt: data.created_at,
+      headBranch: data.head?.ref || '',
+      baseBranch: data.base?.ref || '',
+      changedFiles: data.changed_files,
+      additions: data.additions,
+      deletions: data.deletions,
+    };
+  }
+
+  async getPullRequestFiles(owner: string, repo: string, prNumber: number): Promise<GitHubPRFile[]> {
+    const url = `${this.baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}/files`;
+    const response = await fetch(url, {
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.map((file: any) => ({
+      filename: file.filename,
+      status: file.status,
+      additions: file.additions,
+      deletions: file.deletions,
+      patch: file.patch,
+      contentsUrl: file.contents_url,
+    }));
   }
 
   formatSize(bytes: number): string {
