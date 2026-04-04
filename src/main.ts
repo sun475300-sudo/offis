@@ -965,6 +965,25 @@ class PixelOfficeApp {
 
       this.logUser(fullCommand);
 
+      // Check for GitHub attachments and trigger review
+      const githubFiles = attachedFiles.filter(f => f.type === 'github');
+      if (githubFiles.length > 0) {
+        for (const ghFile of githubFiles) {
+          const githubUrl = ghFile.githubUrl;
+          if (!githubUrl) continue;
+          const parsed = this.gitHubService.parseRepoUrl(githubUrl);
+          if (parsed) {
+            await this.handleGitHubReview(parsed.owner, parsed.repo, command);
+          }
+        }
+        attachedFiles.length = 0;
+        updateAttachedFilesDisplay();
+        input.disabled = false;
+        submitBtn.disabled = false;
+        input.focus();
+        return;
+      }
+
       // Process through CLI engine first (slash commands)
       const cliResult = await this.cliEngine.execute(command);
 
@@ -1607,6 +1626,44 @@ class PixelOfficeApp {
 
   private logError(message: string): void {
     this.addCliMessage(message, 'error');
+  }
+
+  private async handleGitHubReview(owner: string, repo: string, command: string): Promise<void> {
+    this.toastManager.info('GitHub', `${owner}/${repo} 분석 준비 중...`);
+    this.logSystem(`🔗 GitHub 레포지토리 분석: ${owner}/${repo}`, 'system');
+
+    try {
+      this.toastManager.info('Fetching', '레포지토리 파일 가져오는 중...');
+      
+      // Get repo info and files
+      const analysis = await this.gitHubService.analyzeRepo(owner, repo);
+      
+      this.logSystem(`📊 분석 결과: ${analysis.repo.stars} stars, ${analysis.repo.language}`, 'system');
+
+      // Get main source files for review
+      const sourceFiles: string[] = [];
+      const contents = await this.gitHubService.getContents(owner, repo);
+      
+      for (const file of contents.slice(0, 10)) {
+        if (file.type === 'file' && (file.name.endsWith('.ts') || file.name.endsWith('.js') || file.name.endsWith('.tsx') || file.name.endsWith('.jsx'))) {
+          const content = await this.gitHubService.getFileContent(owner, repo, file.path);
+          sourceFiles.push(`// ${file.path}\n${content}`);
+        }
+      }
+
+      const codeToReview = sourceFiles.join('\n\n---\n\n') || `Repository: ${owner}/${repo}\nLanguage: ${analysis.repo.language}`;
+      
+      // Start review with the fetched code
+      const projectName = `GitHub-Review-${repo}`;
+      await this.startCodeReview(codeToReview, projectName);
+      
+      this.toastManager.success('Complete', `${owner}/${repo} 리뷰 완료`);
+      this.logSystem(`✅ GitHub 리뷰 완료: ${owner}/${repo}`, 'success');
+      
+    } catch (error) {
+      this.toastManager.error('GitHub Error', `${error}`);
+      this.logError(`GitHub 분석 실패: ${error}`);
+    }
   }
 
   private addCliMessage(message: string, type: string): void {
