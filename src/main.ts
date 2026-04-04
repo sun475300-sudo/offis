@@ -27,7 +27,7 @@ import { ChatSystem } from './core/ChatSystem';
 import { ToastManager } from './core/ToastManager';
 import { CollaborationSystem, MeetingType } from './agent/CollaborationSystem';
 import { AgentConfig, AgentRole, AgentState, EventType, AggregatedReviewReport, TaskPriority, TaskStatus } from './types';
-import { testSuite, StressTestConfig, StressTestResult } from './services/TestSuite';
+import { testSuite, StressTestConfig, StressTestResult, systemReport } from './services/TestSuite';
 
 const TILE_SIZE = 32;
 const MAP_WIDTH = 40;
@@ -505,14 +505,15 @@ class PixelOfficeApp {
     this.cliEngine.registerCommand({
       name: 'meeting',
       aliases: ['m', '회의'],
-      description: 'Call a meeting',
-      usage: '/meeting <standup|review|planning> [role1,role2]',
+      description: 'Call a meeting (standup|review|planning|video)',
+      usage: '/meeting <standup|review|planning|video> [role1,role2]',
       handler: async (args) => {
         const typeMap: Record<string, MeetingType> = {
           standup: MeetingType.StandUp,
           review: MeetingType.CodeReview,
           planning: MeetingType.Planning,
           pair: MeetingType.PairProgramming,
+          video: MeetingType.VideoConference,
         };
         const meetingType = typeMap[args[0]?.toLowerCase()] || MeetingType.StandUp;
         const roles = args[1]
@@ -522,6 +523,12 @@ class PixelOfficeApp {
         const meeting = this.collaborationSystem.callMeeting(meetingType, roles, 'Team sync', 12);
         if (meeting) {
           this.soundManager.playMeetingStart();
+          
+          if (meetingType === MeetingType.VideoConference) {
+            this.toastManager.info('Video Meeting', `화상 회의 시작: ${meeting.participants.length}명 참가`);
+            this.logSystem(`📹 화상 회의실 활성화: ${meeting.participants.length}명`, 'system');
+          }
+          
           return `Meeting started: ${meeting.type} with ${meeting.participants.length} participants`;
         }
         return 'Could not start meeting (no available room or insufficient agents)';
@@ -1361,6 +1368,46 @@ Meeting Collaboration Results:
           this.logError(`시나리오 실행 실패: ${err}`);
           return `Error: ${err}`;
         }
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'report',
+      aliases: ['리포트'],
+      description: 'Generate system status report',
+      usage: '/report [save]',
+      handler: async (args) => {
+        const report = await systemReport.generateSystemReport();
+        this.logSystem(report, 'system');
+        
+        if (args[0] === 'save' || args[0] === '저장') {
+          await systemReport.saveReport(report, `system-report-${Date.now()}.txt`);
+          this.logSystem('📥 리포트 파일 다운로드', 'success');
+        }
+        
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'detailed-perf',
+      aliases: ['상세성능'],
+      description: 'Show detailed agent performance',
+      usage: '/detailed-perf [type]',
+      handler: async (args) => {
+        if (args[0] === 'type' || args[0] === '타입') {
+          const byType = testSuite.getAgentPerformanceByType();
+          const lines = ['=== 에이전트 타입별 성능 ===', ''];
+          for (const [type, data] of Object.entries(byType)) {
+            lines.push(`${type}: ${data.count}개, 평균 ${data.avgTime.toFixed(0)}ms, 성공률 ${data.successRate.toFixed(1)}%`);
+          }
+          this.logSystem(lines.join('\n'), 'system');
+          return lines.join('\n');
+        }
+        
+        const report = testSuite.getDetailedAgentReport();
+        this.logSystem(report, 'system');
+        return report;
       },
     });
 

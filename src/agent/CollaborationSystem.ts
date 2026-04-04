@@ -16,6 +16,7 @@ export enum MeetingType {
   CodeReview = 'code_review',
   PairProgramming = 'pair_programming',
   Planning = 'planning',
+  VideoConference = 'video_conference',
 }
 
 export interface Meeting {
@@ -231,6 +232,7 @@ export class CollaborationSystem {
       [MeetingType.CodeReview]: 'Code Review',
       [MeetingType.PairProgramming]: 'Pair Programming',
       [MeetingType.Planning]: 'Sprint Planning',
+      [MeetingType.VideoConference]: 'Video Conference',
     };
     return labels[type];
   }
