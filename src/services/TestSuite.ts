@@ -575,6 +575,126 @@ export class TestSuite {
     this.agentMetrics.clear();
   }
 
+  compareResults(current: any, previous: any): string {
+    const lines = ['=== 테스트 결과 비교 ===', ''];
+    const keys = ['tasks', 'time', 'duration', 'errors', 'messages'];
+    
+    for (const key of keys) {
+      const curr = current[key] || 0;
+      const prev = previous[key] || 0;
+      const diff = curr - prev;
+      const pct = prev > 0 ? ((diff / prev) * 100).toFixed(1) : 'N/A';
+      const trend = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+      lines.push(`${key}: ${prev} → ${curr} (${trend} ${pct}%)`);
+    }
+    
+    return lines.join('\n');
+  }
+
+  getLastResult(): any {
+    const history = this.getHistory();
+    return history.length > 0 ? history[history.length - 1].result : null;
+  }
+
+  getPreviousResult(): any {
+    const history = this.getHistory();
+    return history.length > 1 ? history[history.length - 2].result : null;
+  }
+
+  private templates: { id: string; name: string; config: StressTestConfig; description: string; createdAt: number }[] = [];
+
+  saveTemplate(name: string, config: StressTestConfig, description: string = ''): string {
+    const id = `template-${Date.now()}`;
+    this.templates.push({ id, name, config, description, createdAt: Date.now() });
+    this.saveTemplates();
+    return id;
+  }
+
+  getTemplates() {
+    return this.templates;
+  }
+
+  deleteTemplate(id: string): void {
+    this.templates = this.templates.filter(t => t.id !== id);
+    this.saveTemplates();
+  }
+
+  runTemplate(id: string, callbacks?: any): Promise<StressTestResult> {
+    const template = this.templates.find(t => t.id === id);
+    if (!template) {
+      return Promise.reject(new Error('Template not found'));
+    }
+    return this.runStressTest(template.config, callbacks);
+  }
+
+  private saveTemplates(): void {
+    localStorage.setItem('test_templates', JSON.stringify(this.templates));
+  }
+
+  loadTemplates(): void {
+    const stored = localStorage.getItem('test_templates');
+    if (stored) {
+      try {
+        this.templates = JSON.parse(stored);
+      } catch {}
+    }
+  }
+
+  private webhooks: { id: string; url: string; events: string[]; enabled: boolean }[] = [];
+
+  addWebhook(url: string, events: string[]): string {
+    const id = `webhook-${Date.now()}`;
+    this.webhooks.push({ id, url, events, enabled: true });
+    this.saveWebhooks();
+    return id;
+  }
+
+  removeWebhook(id: string): void {
+    this.webhooks = this.webhooks.filter(w => w.id !== id);
+    this.saveWebhooks();
+  }
+
+  getWebhooks() {
+    return this.webhooks;
+  }
+
+  toggleWebhook(id: string, enabled: boolean): void {
+    const webhook = this.webhooks.find(w => w.id === id);
+    if (webhook) {
+      webhook.enabled = enabled;
+      this.saveWebhooks();
+    }
+  }
+
+  private saveWebhooks(): void {
+    localStorage.setItem('test_webhooks', JSON.stringify(this.webhooks));
+  }
+
+  loadWebhooks(): void {
+    const stored = localStorage.getItem('test_webhooks');
+    if (stored) {
+      try {
+        this.webhooks = JSON.parse(stored);
+      } catch {}
+    }
+  }
+
+  async sendWebhook(event: string, data: any): Promise<void> {
+    for (const webhook of this.webhooks) {
+      if (!webhook.enabled || !webhook.events.includes(event)) continue;
+      
+      try {
+        await fetch(webhook.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event, data, timestamp: Date.now() }),
+        });
+      } catch (err) {
+        console.error(`Webhook failed: ${err}`);
+      }
+    }
+  }
+
   generateReport(result: StressTestResult): string {
     const lines = [
       '═══════════════════════════════════════',

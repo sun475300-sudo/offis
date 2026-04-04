@@ -128,4 +128,43 @@ export class ToastManager {
   getActiveCount(): number {
     return this.toasts.size;
   }
+
+  showTestNotification(type: 'success' | 'error' | 'warning' | 'info', testType: string, result: any): string {
+    let title = '';
+    let message = '';
+    
+    switch (testType) {
+      case 'stress':
+        title = '부하 테스트 완료';
+        message = `작업: ${result.totalTasksCompleted}, 실패: ${result.failedTasks}, 시간: ${result.duration.toFixed(1)}s`;
+        break;
+      case 'load':
+        title = '부하 생성 테스트 완료';
+        message = `에이전트: ${result.activeAgents}, 생성시간: ${result.spawnTime}ms, FPS드롭: ${result.fpsDrop.toFixed(1)}`;
+        break;
+      case 'debate':
+        title = '토론 테스트 완료';
+        message = `턴: ${result.turns}, 에러: ${result.errors}`;
+        break;
+      case 'cicd':
+        title = 'CI/CD 테스트 완료';
+        message = `성공: ${result.success}, 실패: ${result.failed}, 성공률: ${(result.success / (result.success + result.failed) * 100).toFixed(1)}%`;
+        break;
+      case 'meeting':
+        title = '회의 협업 테스트 완료';
+        message = `메시지: ${result.messages}, 충돌: ${result.conflicts}`;
+        break;
+      default:
+        title = '테스트 완료';
+        message = JSON.stringify(result).slice(0, 50);
+    }
+    
+    return this.show(type, title, message, 5000);
+  }
+
+  notifyTestAlert(alerts: string[]): void {
+    alerts.forEach(alert => {
+      this.show('warning', '테스트 알림', alert, 8000);
+    });
+  }
 }

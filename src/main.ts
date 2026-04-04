@@ -107,6 +107,8 @@ class PixelOfficeApp {
     testSuite.loadSchedules();
     testSuite.loadCustomScenarios();
     testSuite.loadNotifications();
+    testSuite.loadTemplates();
+    testSuite.loadWebhooks();
 
     // HUD container (screen-space, not affected by camera)
     this.hudContainer = new PIXI.Container();
@@ -902,7 +904,14 @@ class PixelOfficeApp {
         
         const report = testSuite.generateReport(result);
         this.logSystem(report, 'success');
-        this.toastManager.success('Stress Test', `완료: ${result.totalTasksCompleted}개 작업, ${result.failedTasks}개 실패`);
+        this.toastManager.showTestNotification('success', 'stress', result);
+        
+        const alerts = testSuite.checkNotification(result);
+        if (alerts.length > 0) {
+          this.toastManager.notifyTestAlert(alerts);
+        }
+        
+        testSuite.sendWebhook('test.complete', { type: 'stress', result });
         
         return report;
       },
@@ -930,7 +939,8 @@ Load Test Results:
   FPS 드롭: ${result.fpsDrop.toFixed(1)}`;
         
         this.logSystem(report, result.fpsDrop < 20 ? 'success' : 'error');
-        this.toastManager[result.fpsDrop < 20 ? 'success' : 'error']('Load Test', `FPS 드롭: ${result.fpsDrop.toFixed(1)}`);
+        this.toastManager.showTestNotification(result.fpsDrop < 20 ? 'success' : 'warning', 'load', result);
+        testSuite.sendWebhook('test.complete', { type: 'load', result });
         
         return report;
       },
@@ -958,7 +968,8 @@ Debate Stress Results:
   소요 시간: ${result.duration}ms`;
         
         this.logSystem(report, result.errors === 0 ? 'success' : 'error');
-        this.toastManager.success('Debate Test', `${result.turns}턴 완료, ${result.errors}에러`);
+        this.toastManager.showTestNotification(result.errors === 0 ? 'success' : 'warning', 'debate', result);
+        testSuite.sendWebhook('test.complete', { type: 'debate', result });
         
         return report;
       },
@@ -986,7 +997,8 @@ CI/CD Feedback Loop Results:
   평균 시간: ${result.avgTime.toFixed(1)}ms`;
         
         this.logSystem(report, result.failed === 0 ? 'success' : 'error');
-        this.toastManager[result.failed === 0 ? 'success' : 'error']('CI/CD Test', `성공 ${result.success}, 실패 ${result.failed}`);
+        this.toastManager.showTestNotification(result.failed === 0 ? 'success' : 'warning', 'cicd', result);
+        testSuite.sendWebhook('test.complete', { type: 'cicd', result });
         
         return report;
       },
@@ -1048,9 +1060,9 @@ Meeting Collaboration Results:
   충돌률: ${(result.conflicts / result.messages * 100).toFixed(1)}%`;
         
         this.logSystem(report, result.conflicts < result.messages * 0.2 ? 'success' : 'error');
-        this.toastManager[result.conflicts < result.messages * 0.2 ? 'success' : 'error']('Meeting Test', `메시지 ${result.messages}, 충돌 ${result.conflicts}`);
-        
+        this.toastManager.showTestNotification(result.conflicts < result.messages * 0.2 ? 'success' : 'warning', 'meeting', result);
         testSuite.saveToHistory('meeting', { participants, rounds }, result);
+        testSuite.sendWebhook('test.complete', { type: 'meeting', result });
         return report;
       },
     });
@@ -1184,6 +1196,109 @@ Meeting Collaboration Results:
         const report = testSuite.getAgentPerformanceReport();
         this.logSystem(report, 'system');
         return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'compare',
+      aliases: ['비교'],
+      description: 'Compare current test result with previous',
+      usage: '/compare',
+      handler: async () => {
+        const current = testSuite.getLastResult();
+        const previous = testSuite.getPreviousResult();
+        
+        if (!current || !previous) {
+          return '비교할 데이터가 부족합니다 (2개 이상의 테스트 필요)';
+        }
+        
+        const report = testSuite.compareResults(current, previous);
+        this.logSystem(report, 'system');
+        return report;
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'template',
+      aliases: ['템플릿'],
+      description: 'Save/run test templates',
+      usage: '/template [save|run|list|delete] [name] [config]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const templates = testSuite.getTemplates();
+          if (templates.length === 0) return '저장된 템플릿이 없습니다';
+          return templates.map(t => `${t.id}: ${t.name} - ${t.description}`).join('\n');
+        }
+        
+        if (args[0] === 'save' || args[0] === '저장') {
+          if (!args[1] || !args[2]) return 'Usage: /template save <name> <config-json>';
+          try {
+            const config = JSON.parse(args.slice(2).join(' '));
+            const id = testSuite.saveTemplate(args[1], config, args[1] + ' 템플릿');
+            this.logSystem(`📝 템플릿 저장: ${args[1]}`, 'success');
+            return `Template saved: ${id}`;
+          } catch (e) {
+            return `Invalid config JSON: ${e}`;
+          }
+        }
+        
+        if (args[0] === 'run' || args[0] === '실행') {
+          if (!args[1]) return 'Usage: /template run <template-id>';
+          try {
+            const result = await testSuite.runTemplate(args[1]);
+            const report = testSuite.generateReport(result);
+            this.logSystem(report, 'success');
+            return report;
+          } catch (e) {
+            return `Template not found: ${e}`;
+          }
+        }
+        
+        if (args[0] === 'delete' || args[0] === '삭제') {
+          if (!args[1]) return 'Usage: /template delete <template-id>';
+          testSuite.deleteTemplate(args[1]);
+          this.logSystem(`🗑️ 템플릿 삭제: ${args[1]}`, 'success');
+          return `Template deleted`;
+        }
+        
+        return 'Usage: /template [save|run|list|delete] [name] [config]';
+      },
+    });
+
+    this.cliEngine.registerCommand({
+      name: 'webhook',
+      aliases: ['웹훅'],
+      description: 'Configure webhook notifications',
+      usage: '/webhook [add|remove|list|test] [url] [events]',
+      handler: async (args) => {
+        if (args[0] === 'list' || args[0] === '목록') {
+          const webhooks = testSuite.getWebhooks();
+          if (webhooks.length === 0) return '설정된 웹훅이 없습니다';
+          return webhooks.map(w => `${w.id}: ${w.url} (${w.enabled ? '활성' : '비활성'})`).join('\n');
+        }
+        
+        if (args[0] === 'add' || args[0] === '추가') {
+          if (!args[1] || !args[2]) return 'Usage: /webhook add <url> <events>';
+          const events = args[2].split(',');
+          const id = testSuite.addWebhook(args[1], events);
+          this.logSystem(`🔗 웹훅 추가: ${args[1]}`, 'success');
+          return `Webhook added: ${id}`;
+        }
+        
+        if (args[0] === 'remove' || args[0] === '삭제') {
+          if (!args[1]) return 'Usage: /webhook remove <webhook-id>';
+          testSuite.removeWebhook(args[1]);
+          this.logSystem(`🔗 웹훅 삭제: ${args[1]}`, 'success');
+          return 'Webhook removed';
+        }
+        
+        if (args[0] === 'test' || args[0] === '테스트') {
+          await testSuite.sendWebhook('test', { message: 'Test webhook' });
+          this.logSystem('🔗 웹훅 테스트 전송', 'success');
+          return 'Test webhook sent';
+        }
+        
+        return 'Usage: /webhook [add|remove|list|test] [url] [events]';
       },
     });
 
