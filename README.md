@@ -19,6 +19,8 @@ A 2D pixel art office environment where dozens of AI agents collaborate to handl
 - **Agent & AgentManager** - FSM-based agent behavior
 - **BehaviorTree** - Hierarchical task execution
 - **CollaborationSystem** - Meeting room coordination
+- **AgentPersona** - Agent personality/persona system
+- **TaskQueue** - Priority-based task queue management
 - **ReviewService** - Multi-perspective code analysis
 
 ### Rendering (10+ Renderers)
@@ -38,7 +40,7 @@ A 2D pixel art office environment where dozens of AI agents collaborate to handl
 
 ## 🧪 Test Suite
 
-### Available Commands
+### Commands
 
 ```
 테스트 실행:
@@ -47,112 +49,26 @@ A 2D pixel art office environment where dozens of AI agents collaborate to handl
   /debate-test [인원]                   # 토론 테스트
   /cicd-test [반복]                     # CI/CD 테스트
   /meeting-test [인원] [라운드]         # 회의 협업 테스트
-  /latency [ms]                        # 네트워크 지연 설정
-  /scenario [quick|standard|heavy|stress]  # 커스텀 시나리오
+  /stress-full                          # 전체 시스템 부하 테스트
 
-스케줄 & 히스토리:
-  /schedule add <이름> <분>            # 스케줄 추가
-  /schedule list                       # 스케줄 목록
-  /history [개수]                      # 테스트 히스토리
-  /clear-history                       # 히스토리 초기화
+분석 & 관리:
+  /agent-perf, /detailed-perf          # 에이전트 성능
+  /compare                              # 결과 비교
+  /report [save]                        # 시스템 리포트
+  /resource                             # 리소스 모니터링
+  /queue [add|list|clear]               # 태스크 큐
 
-분석 & 내보내기:
-  /export [csv|json]                  # 결과 내보내기
-  /notify list                         # 알림 설정
-  /agent-perf                          # 에이전트 성능
-  /compare                             # 결과 비교
-  /template save <이름> <config>       # 템플릿 저장
-  /template list                       # 템플릿 목록
-  /webhook add <url> <events>          # 웹훅 추가
-```
+템플릿 & 설정:
+  /template save <name> <config>       # 템플릿 저장
+  /scenario [quick|standard|heavy|stress]  # 시나리오
+  /config export                        # 설정 내보내기
+  /theme [list|set]                    # 테마 관리
 
-### Test Types
-
-| Type | Description | Metrics |
-|------|-------------|---------|
-| Stress | Agent concurrent tasks | tasks, failed, duration |
-| Load | Mass agent spawning | spawn time, memory, FPS drop |
-| Debate | Multi-party debates | turns, errors |
-| CI/CD | Feedback loops | success, failed, avg time |
-| Meeting | Team collaboration | messages, conflicts |
-| Agent Type | Per-type performance | tasks, avgTime, errors |
-
-### Test Results Comparison
-
-Use `/compare` to compare current test result with previous:
-```
-=== 테스트 결과 비교 ===
-tasks: 150 → 180 (↑ 20.0%)
-time: 500ms → 450ms (↓ 10.0%)
-```
-
-### Export Formats
-
-- **CSV**: `/export csv` - Downloads `test-results-{timestamp}.csv`
-- **JSON**: `/export json` - Downloads `test-results-{timestamp}.json`
-
-### Notifications
-
-Configure alerts for:
-- `failure` - Task failure threshold
-- `slow` - Execution time threshold
-- `memory` - Memory usage threshold
-- `rate-limit` - GitHub API rate limit hits
-
-### Webhooks
-
-Send test results to external endpoints:
-```
-/webhook add https://your-server.com/webhook test.complete,cicd.complete
-/webhook list
-/webhook test
-```
-
-### Templates
-
-Save and reuse test configurations:
-```
-/template save mytest {"agentCount":20,"concurrentTasks":5,"duration":10}
-/template run template-1234567890
-```
-
-## 📊 Test Dashboard
-
-The UI includes a test dashboard panel with:
-- Test statistics (count, success rate, avg time)
-- Visual charts (bar, line, pie)
-- Scheduled tests
-- Quick scenario buttons
-
-## 🏗️ Architecture
-
-```
-src/
-├── main.ts              # Main application (3000+ lines)
-├── types/index.ts       # TypeScript interfaces
-├── core/
-│   ├── EventBus.ts      # Pub/Sub event system
-│   ├── GameLoop.ts      # Render loop
-│   ├── Orchestrator.ts  # Task decomposition
-│   ├── CLIEngine.ts     # Command handler
-│   ├── SoundManager.ts  # Audio feedback
-│   ├── ChatSystem.ts    # Agent chat
-│   └── ToastManager.ts  # Notifications
-├── agent/
-│   ├── Agent.ts         # Agent entity
-│   ├── AgentManager.ts  # Agent pool
-│   ├── BehaviorTree.ts  # Task execution
-│   └── CollaborationSystem.ts
-├── rendering/           # 10+ PixiJS renderers
-├── debate/
-│   ├── DebateManager.ts # Code debates
-│   └── RunnerManager.ts # CI/CD runners
-├── services/
-│   ├── TestSuite.ts     # Test runner
-│   ├── ReviewService.ts # Code analysis
-│   ├── GitHubService.ts # GitHub API
-│   └── LLMService.ts    # Task decomposition
-└── ui/styles.css        # 1700+ lines
+코드 & 협업:
+  /snippet add <name> <code>          # 코드 스니펫 저장
+  /snippet search <query>              # 스니펫 검색
+  /collab create <type>                # 협업 세션 생성
+  /persona [agent-id]                   # 에이전트 페르소나
 ```
 
 ## 🎮 Running
@@ -163,11 +79,31 @@ npm run dev     # Development server at http://localhost:3000
 npm run build   # Production build
 ```
 
+## 📊 Architecture
+
+```
+src/
+├── main.ts              # Main application (3100+ lines)
+├── types/index.ts       # TypeScript interfaces
+├── core/                # Core systems (EventBus, GameLoop, CLI, etc.)
+├── agent/               # Agent systems (Manager, BehaviorTree, Collaboration)
+├── rendering/           # 10+ PixiJS renderers
+├── debate/              # Debate & CI/CD (DebateManager, RunnerManager)
+├── services/
+│   ├── TestSuite.ts     # Test runner & analysis
+│   ├── FeatureServices.ts # Persona, Queue, Snippets, Theme, Config, Resource
+│   ├── ReviewService.ts # Code analysis
+│   ├── GitHubService.ts # GitHub API
+│   └── LLMService.ts    # Task decomposition
+└── ui/styles.css        # 1700+ lines
+```
+
 ## 📈 Performance
 
 - 60 FPS with 50+ agents
 - < 100ms response time for commands
 - Supports 100+ concurrent tasks
+- Full stress test capability
 
 ## 🔗 GitHub Integration
 
@@ -177,11 +113,10 @@ Paste GitHub URLs to trigger:
 
 ## 🤖 Agents
 
-- **Architect** - Code structure analysis
-- **Security Engineer** - Bug and vulnerability detection
-- **Performance Engineer** - Optimization suggestions
-- **Developer** - Implementation tasks
-- **Reviewer** - Code quality checks
+- **Architect** - Code structure analysis (체계적, 논리적)
+- **Security Engineer** - Bug detection (분석적, 철저함)
+- **Performance Engineer** - Optimization (데이터 중심)
+- **Developer** - Implementation (창의적, 실용적)
 
 ## 📝 License
 
