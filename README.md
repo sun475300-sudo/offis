@@ -1,127 +1,239 @@
-# 2D Pixel Office Dashboard - Multi-Agent System (MAS)
+# 2D Pixel Office — Multi-Agent System Dashboard
 
-Enterprise-grade multi-agent dashboard with pixel art office environment, real-time agent management, code review pipeline, CI/CD feedback loops, and GitHub integration.
+> Enterprise-grade 2D pixel office where dozens of AI agents collaborate in real-time, rendered with PixiJS WebGL.
 
-## 🏢 Project Overview
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)
+![PixiJS](https://img.shields.io/badge/PixiJS-7.3-e72264?logo=webgl)
+![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-A 2D pixel art office environment where dozens of AI agents collaborate to handle code reviews, debates, and CI/CD workflows. Built with TypeScript + PixiJS.
+## Overview
 
-## 🚀 Features
+Pixel Office is a real-time 2D visualization dashboard that simulates an autonomous multi-agent software development office. 32 AI agents — each with distinct roles (Frontend, Backend, Designer, QA, DevOps, PM, Architect, Security, Performance) — navigate a tiled office, receive task assignments, collaborate on code reviews, run debates, and execute CI/CD feedback loops, all rendered at 60 FPS in the browser.
 
-### Core Systems
-- **EventBus** - Pub/Sub pattern for agent communication
-- **GameLoop** - Delta-time based rendering loop
-- **Orchestrator** - Task management and agent assignment
-- **ChatSystem** - Inter-agent messaging
-- **ToastManager** - Real-time notifications
+## Key Features
 
-### Agent Systems
-- **Agent & AgentManager** - FSM-based agent behavior
-- **BehaviorTree** - Hierarchical task execution
-- **CollaborationSystem** - Meeting room coordination
-- **AgentPersona** - Agent personality/persona system
-- **TaskQueue** - Priority-based task queue management
-- **ReviewService** - Multi-perspective code analysis
+### Agent Intelligence
+- **Behavior Tree AI** — Selector/Sequence/Action/Condition nodes drive autonomous decision-making
+- **Idle Diversification** — Agents wander (40%), take coffee breaks (20%), or wait (40%) when idle
+- **A\* Pathfinding** — 8-directional movement with octile distance heuristic
+- **Local Avoidance** — Simplified RVO prevents agent-agent collisions
+- **Spatial Hashing** — O(1) neighbor queries for efficient proximity detection
 
-### Rendering (10+ Renderers)
-- AgentRenderer, TilemapRenderer, SpeechBubbleRenderer
-- TaskProgressRenderer, ChartRenderer, MeetingRoomRenderer
-- MinimapRenderer, ParticleSystem, PerformanceOverlay
-- AgentSelectionSystem
+### Rendering
+- **PixiJS 7.3 WebGL** — Hardware-accelerated 2D rendering with PIXI.Graphics pixel art
+- **Direction-aware Animation** — Walk cycle (4-frame), typing, idle breathing, collaboration wave
+- **Role Accessories** — Headsets, berets, glasses distinguish agent roles visually
+- **Speech Bubbles** — Real-time chat visualization during debates
+- **Particle System** — Visual effects for events (task completion, collaboration)
+- **Minimap** — Bird's-eye view with agent position tracking
+- **Camera System** — WASD/Arrow pan, scroll zoom, agent follow-cam, smooth interpolation
 
-### Debate & CI/CD
-- **DebateManager** - 3-turn code review debates
-- **RunnerManager** - CI/CD feedback loops with test runners
+### Collaboration Systems
+- **Debate Engine** — Multi-turn structured debates with real-time chat streaming
+- **Code Review Pipeline** — Parallel Architecture + Security + Performance review
+- **Meeting Room Visualization** — Agents physically gather for collaborative sessions
+- **Pair Programming** — Two-agent collaboration mode
 
-### GitHub Integration
-- Repository analysis
-- PR review with diff parsing
-- Code file fetching
+### Infrastructure
+- **Event Bus** — Pub/Sub decoupled communication across all subsystems
+- **Task Scheduler** — Priority-based task queue with work delegation
+- **Test Runner** — CI/CD feedback loops with live dashboard metrics
+- **GitHub Integration** — Attach repos, browse files, save changes via GitHub API
+- **IndexedDB Persistence** — Client-side state persistence across sessions
 
-## 🧪 Test Suite
+### Dashboard & UI
+- **CLI Interface** — Command-driven control (`/assign`, `/review`, `/debate`, `/runner`, `/status`)
+- **Agent Context Menu** — Right-click agents for follow, info, assign, recall, meeting, pair
+- **Keyboard Shortcuts** — +/- zoom, Tab cycle agents, / focus CLI, ? help overlay
+- **5 Overlay Panels** — Agent status, history, monitoring, test dashboard, chat
+- **Dark/Light Theme** — Toggle with persistent localStorage preference
+- **Responsive Layout** — 3 CSS breakpoints for different screen sizes
 
-### Commands
-
-```
-테스트 실행:
-  /test [에이전트] [동시] [시간]         # 부하 테스트
-  /loadtest [개수] [속도]               # 부하 생성 테스트
-  /debate-test [인원]                   # 토론 테스트
-  /cicd-test [반복]                     # CI/CD 테스트
-  /meeting-test [인원] [라운드]         # 회의 협업 테스트
-  /stress-full                          # 전체 시스템 부하 테스트
-
-분석 & 관리:
-  /agent-perf, /detailed-perf          # 에이전트 성능
-  /compare                              # 결과 비교
-  /report [save]                        # 시스템 리포트
-  /resource                             # 리소스 모니터링
-  /queue [add|list|clear]               # 태스크 큐
-
-템플릿 & 설정:
-  /template save <name> <config>       # 템플릿 저장
-  /scenario [quick|standard|heavy|stress]  # 시나리오
-  /config export                        # 설정 내보내기
-  /theme [list|set]                    # 테마 관리
-
-코드 & 협업:
-  /snippet add <name> <code>          # 코드 스니펫 저장
-  /snippet search <query>              # 스니펫 검색
-  /collab create <type>                # 협업 세션 생성
-  /persona [agent-id]                   # 에이전트 페르소나
-```
-
-## 🎮 Running
-
-```bash
-npm install
-npm run dev     # Development server at http://localhost:3000
-npm run build   # Production build
-```
-
-## 📊 Architecture
+## Architecture
 
 ```
 src/
-├── main.ts              # Main application (3100+ lines)
-├── types/index.ts       # TypeScript interfaces
-├── core/                # Core systems (EventBus, GameLoop, CLI, etc.)
-├── agent/               # Agent systems (Manager, BehaviorTree, Collaboration)
-├── rendering/           # 10+ PixiJS renderers
-├── debate/              # Debate & CI/CD (DebateManager, RunnerManager)
-├── services/
-│   ├── TestSuite.ts     # Test runner & analysis
-│   ├── FeatureServices.ts # Persona, Queue, Snippets, Theme, Config, Resource
-│   ├── ReviewService.ts # Code analysis
-│   ├── GitHubService.ts # GitHub API
-│   └── LLMService.ts    # Task decomposition
-└── ui/styles.css        # 1700+ lines
+├── main.ts                    # Application entry point & UI wiring
+├── types/index.ts             # All TypeScript interfaces & enums
+│
+├── agent/                     # Agent intelligence
+│   ├── Agent.ts               # Agent entity with state machine
+│   ├── AgentManager.ts        # Lifecycle, spawning, task dispatch
+│   ├── AgentBehaviors.ts      # Behavior tree action/condition nodes
+│   ├── BehaviorTree.ts        # BT framework (Selector, Sequence, Action, Condition)
+│   └── CollaborationSystem.ts # Multi-agent collaboration protocols
+│
+├── core/                      # Engine systems
+│   ├── GameLoop.ts            # RequestAnimationFrame with delta clamping
+│   ├── EventBus.ts            # Typed pub/sub event system
+│   ├── CLIEngine.ts           # Command parser and executor
+│   ├── ChatSystem.ts          # Real-time agent chat
+│   ├── Orchestrator.ts        # High-level system coordinator
+│   ├── WorkflowEngine.ts      # Multi-step workflow execution
+│   ├── PluginSystem.ts        # Extensible plugin architecture
+│   ├── CacheManager.ts        # LRU caching layer
+│   ├── Logger.ts              # Structured logging
+│   ├── MetricsCollector.ts    # Performance metrics aggregation
+│   ├── NotificationCenter.ts  # Cross-system notifications
+│   ├── SoundManager.ts        # Audio feedback system
+│   └── ToastManager.ts        # Toast notification UI
+│
+├── rendering/                 # PixiJS rendering layer
+│   ├── TilemapRenderer.ts     # Office floor, walls, desks, room zones
+│   ├── AgentRenderer.ts       # Animated pixel art agent sprites
+│   ├── AgentSelectionSystem.ts# Click/hover selection with ring highlight
+│   ├── CameraController.ts    # Pan, zoom, follow-cam, minimap viewport
+│   ├── MinimapRenderer.ts     # Bird's-eye minimap overlay
+│   ├── SpeechBubbleRenderer.ts# Chat bubble rendering above agents
+│   ├── ParticleSystem.ts      # Visual effect particles
+│   ├── MeetingRoomRenderer.ts # Meeting room visualization
+│   ├── TaskProgressRenderer.ts# Work progress bars
+│   ├── StatsChartRenderer.ts  # Real-time statistics charts
+│   └── PerformanceOverlay.ts  # FPS, memory, draw call stats
+│
+├── spatial/                   # Spatial systems
+│   ├── Tilemap.ts             # Grid data structure with runtime editing
+│   ├── Pathfinder.ts          # A* with 8-directional movement
+│   ├── SpatialHash.ts         # O(1) spatial partitioning
+│   └── LocalAvoidance.ts      # RVO-based collision avoidance
+│
+├── services/                  # Business logic & integrations
+│   ├── GitHubService.ts       # GitHub API (repo browse, file CRUD)
+│   ├── LLMService.ts          # LLM API integration
+│   ├── ReviewService.ts       # Parallel code review pipeline
+│   ├── TaskService.ts         # Task creation and management
+│   ├── TaskScheduler.ts       # Priority scheduling
+│   ├── TaskDecomposer.ts      # Complex task breakdown
+│   ├── TaskDelegation.ts      # Role-based task routing
+│   ├── SearchSystem.ts        # Full-text search across entities
+│   ├── ExportEngine.ts        # Data export (JSON, CSV)
+│   ├── SecurityScanner.ts     # Code security analysis
+│   ├── TestSuite.ts           # Automated test scenarios
+│   ├── KnowledgeGraph.ts      # Entity relationship graph
+│   ├── SharedMemory.ts        # Cross-agent shared state
+│   ├── ContextSharing.ts      # Context propagation
+│   ├── AgentLearning.ts       # Adaptive agent behavior
+│   ├── AdaptationEngine.ts    # System self-tuning
+│   ├── CircuitBreaker.ts      # Fault isolation
+│   ├── FaultTolerance.ts      # Graceful degradation
+│   ├── SelfHealing.ts         # Auto-recovery
+│   ├── RetryPolicy.ts         # Exponential backoff retry
+│   ├── LoadBalancer.ts        # Work distribution
+│   ├── WorkQueue.ts           # Durable work queue
+│   ├── RateLimiter.ts         # Request throttling
+│   ├── DistributedTracing.ts  # Request tracing across agents
+│   ├── Telemetry.ts           # System telemetry collection
+│   ├── EventSourcing.ts       # Event log with replay
+│   ├── AnalyticsEngine.ts     # Usage analytics
+│   ├── HealthMonitor.ts       # System health checks
+│   ├── PerformanceProfiler.ts # Runtime profiling
+│   ├── AuditTrail.ts          # Action audit logging
+│   ├── StatePersistence.ts    # IndexedDB state store
+│   ├── ConsensusMechanism.ts  # Multi-agent consensus
+│   ├── ResourcePool.ts        # Resource management
+│   ├── RoleManager.ts         # Dynamic role assignment
+│   ├── CapabilityRegistry.ts  # Agent capability tracking
+│   ├── MessageRouter.ts       # Inter-agent messaging
+│   ├── AgentNegotiation.ts    # Task negotiation protocol
+│   ├── A2AProtocol.ts         # Agent-to-Agent communication
+│   └── FeatureServices.ts     # Feature flag management
+│
+├── debate/                    # Debate & testing systems
+│   ├── DebateManager.ts       # Multi-turn structured debates
+│   └── RunnerManager.ts       # Test runner with CI/CD loops
+│
+└── ui/
+    └── styles.css             # Full UI stylesheet (panels, themes, responsive)
 ```
 
-## 📈 Performance
+## Quick Start
 
-- 60 FPS with 50+ agents
-- < 100ms response time for commands
-- Supports 100+ concurrent tasks
-- Full stress test capability
+```bash
+# Clone
+git clone https://github.com/sun475300-sudo/offis.git
+cd offis
 
-## 🔗 GitHub Integration
+# Install
+npm install
 
-Paste GitHub URLs to trigger:
-- Repository analysis (`github.com/user/repo`)
-- PR review (`github.com/user/repo/pull/123`)
+# Dev server (hot reload)
+npm run dev
 
-## 🤖 Agents
+# Production build
+npm run build
+npm run preview
+```
 
-- **Architect** - Code structure analysis (체계적, 논리적)
-- **Security Engineer** - Bug detection (분석적, 철저함)
-- **Performance Engineer** - Optimization (데이터 중심)
-- **Developer** - Implementation (창의적, 실용적)
+Open `http://localhost:5173` (dev) or `http://localhost:4173` (preview).
 
-## 📝 License
+## CLI Commands
 
-MIT License
+| Command | Description |
+|---------|-------------|
+| `/status` | Show agent count, tasks, FPS |
+| `/assign <role> <task>` | Assign work to an agent by role |
+| `/review` | Start parallel code review on attached repo |
+| `/fullreview` | Review + multi-agent debate pipeline |
+| `/debate <topic>` | Start a structured multi-agent debate |
+| `/runner` | Run test suite |
+| `/runner loop` | Start CI/CD feedback loop |
+| `/runners` | Show runner status |
+| `/help` | List all available commands |
 
-## 👤 Author
+## Keyboard Shortcuts
 
-sun475300-sudo
+| Key | Action |
+|-----|--------|
+| `+` / `-` | Zoom in / out |
+| `0` | Reset zoom |
+| `Home` | Reset camera position |
+| `Tab` | Cycle to next agent |
+| `Esc` | Deselect / stop following |
+| `S` | Toggle stats panel |
+| `P` | Toggle performance overlay |
+| `/` | Focus CLI input |
+| `?` | Show shortcuts overlay |
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Rendering | PixiJS 7.3 (WebGL 2D) |
+| Language | TypeScript 5.9 (strict mode) |
+| Build | Vite 5.4 with code splitting |
+| Persistence | IndexedDB + localStorage |
+| Styling | Pure CSS (no framework) |
+
+## Build Output
+
+```
+dist/index.html           13.57 kB (gzip: 3.25 kB)
+dist/assets/index.css     22.48 kB (gzip: 4.37 kB)
+dist/assets/index.js     186.54 kB (gzip: 58.70 kB)
+dist/assets/pixi.js      472.20 kB (gzip: 142.34 kB)
+```
+
+Total gzip: **~208 kB** — loads in under 1 second on broadband.
+
+## Agent Roles
+
+| Role | Color | Specialization |
+|------|-------|---------------|
+| Frontend | `#42A5F5` | UI/UX implementation |
+| Backend | `#66BB6A` | API & server logic |
+| Designer | `#AB47BC` | Visual design & assets |
+| PM | `#FFA726` | Project management |
+| QA | `#EF5350` | Testing & quality |
+| DevOps | `#78909C` | Infrastructure & CI/CD |
+| Architect | `#7E57C2` | System design |
+| Security | `#EF5350` | Security analysis |
+| Performance | `#26A69A` | Performance optimization |
+
+## Author
+
+**sun475300-sudo**
+
+## License
+
+MIT
