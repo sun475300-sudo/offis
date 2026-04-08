@@ -1,4 +1,4 @@
-﻿import {
+import {
   AgentConfig,
   AgentRole,
   AgentSnapshot,
@@ -100,15 +100,6 @@ export class Agent {
       if (fallback.found) {
         this.path = fallback.path.slice(1);
         this.setState(AgentState.Moving);
-      } else {
-        // Fix: emit failure event and release task so agent can be reassigned
-        console.warn(`[Agent ${this.name}] Path to task "${task.description}" not found ? releasing task`);
-        this.eventBus.emit(EventType.TaskFailed, {
-          taskId: task.id,
-          agentId: this.id,
-          reason: 'pathfinding_failed',
-        });
-        this.currentTask = null;
       }
     }
   }
@@ -118,30 +109,15 @@ export class Agent {
   }
 
   update(deltaTime: number): void {
-    // Tick behavior tree with a snapshot; sync mutations back afterward
-    const snapshot = this.getSnapshot();
+    // Tick behavior tree
     const ctx: BTContext = {
-      agent: snapshot,
+      agent: this.getSnapshot(),
       deltaTime,
       eventBus: this.eventBus,
       pathfinder: this.pathfinder,
       tilemap: this.tilemap,
     };
     this.behaviorTree.tick(ctx);
-
-    // Bug 2 fix: sync BT-computed path back to the real agent
-    if (snapshot.path.length > 0 && this.path.length === 0) {
-      this.path = snapshot.path;
-    }
-
-    // Fix: recover from stuck state (task assigned but idle with no path)
-    if (this.currentTask && this.path.length === 0 && this.state === AgentState.Idle) {
-      const retryResult = this.pathfinder.findPath(this.gridCell, this.currentTask.targetDesk);
-      if (retryResult.found && retryResult.path.length > 1) {
-        this.path = retryResult.path.slice(1);
-        this.setState(AgentState.Moving);
-      }
-    }
 
     // Process movement
     if (this.state === AgentState.Moving || this.state === AgentState.Returning) {

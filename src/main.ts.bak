@@ -1,4 +1,4 @@
-﻿import * as PIXI from 'pixi.js';
+import * as PIXI from 'pixi.js';
 import { EventBus } from './core/EventBus';
 import { GameLoop } from './core/GameLoop';
 import { Orchestrator } from './core/Orchestrator';
@@ -189,7 +189,6 @@ class PixelOfficeApp {
     this.setupKeyboardShortcuts();
 
     this.gameLoop.start();
-    this.orchestrator.startDispatchLoop(3000); // Auto-retry pending tasks every 3s
     this.logSystem('Pixel Office MAS Dashboard initialized');
     this.logSystem('📋 코드 리뷰 오피스가 준비되었습니다.');
     this.logSystem('CLI에 코드를 입력하고 "검수" 또는 "리뷰" 명령으로 코드 리뷰를 요청하세요.');
