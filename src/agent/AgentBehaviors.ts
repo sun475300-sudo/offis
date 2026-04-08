@@ -141,7 +141,94 @@ function reportAndReturn(ctx: BTContext): BTNodeStatus {
   return BTNodeStatus.Running;
 }
 
-function idleBehavior(_ctx: BTContext): BTNodeStatus {
-  // Agent is idle — just wait for next task assignment
+// Per-agent idle state tracking
+const idleTimers: Map<string, { nextActionTime: number; idleAction: 'waiting' | 'wandering' | 'coffee' | 'chatting' }> = new Map();
+
+function idleBehavior(ctx: BTContext): BTNodeStatus {
+  const agentId = ctx.agent.id;
+  const now = Date.now();
+
+  let timer = idleTimers.get(agentId);
+  if (!timer) {
+    // Initialize with a random delay before first idle action (3-8 seconds)
+    timer = {
+      nextActionTime: now + 3000 + Math.random() * 5000,
+      idleAction: 'waiting',
+    };
+    idleTimers.set(agentId, timer);
+  }
+
+  // If currently wandering and path is being followed, keep running
+  if (timer.idleAction === 'wandering' && ctx.agent.path.length > 0) {
+    return BTNodeStatus.Running;
+  }
+
+  // If we finished wandering, go back to waiting with new timer
+  if (timer.idleAction === 'wandering' && ctx.agent.path.length === 0) {
+    timer.idleAction = 'waiting';
+    timer.nextActionTime = now + 4000 + Math.random() * 6000;
+    // Return to idle state
+    if (ctx.agent.state !== AgentState.Idle) {
+      ctx.eventBus.emit(EventType.AgentStateChanged, {
+        agentId: ctx.agent.id,
+        newState: AgentState.Idle,
+      });
+    }
+    return BTNodeStatus.Running;
+  }
+
+  // Not time for next action yet
+  if (now < timer.nextActionTime) return BTNodeStatus.Running;
+
+  // Pick a random idle action
+  const roll = Math.random();
+  if (roll < 0.4) {
+    // 40% chance: random wander to a nearby walkable tile
+    const currentCell = ctx.agent.gridCell;
+    const offsets = [
+      { col: -2, row: 0 }, { col: 2, row: 0 },
+      { col: 0, row: -2 }, { col: 0, row: 2 },
+      { col: -1, row: -1 }, { col: 1, row: 1 },
+    ];
+    const offset = offsets[Math.floor(Math.random() * offsets.length)];
+    const target = { col: currentCell.col + offset.col, row: currentCell.row + offset.row };
+
+    if (ctx.tilemap.isWalkable(target.col, target.row)) {
+      const result = ctx.pathfinder.findPath(currentCell, target);
+      if (result.found && result.path.length > 1) {
+        ctx.agent.path = result.path.slice(1);
+        timer.idleAction = 'wandering';
+        ctx.eventBus.emit(EventType.AgentStateChanged, {
+          agentId: ctx.agent.id,
+          newState: AgentState.Moving,
+        });
+        return BTNodeStatus.Running;
+      }
+    }
+
+    // Couldn't wander — just reset timer
+    timer.nextActionTime = now + 3000 + Math.random() * 5000;
+  } else if (roll < 0.6) {
+    // 20% chance: coffee break (just switch to waiting state briefly)
+    timer.idleAction = 'coffee';
+    timer.nextActionTime = now + 5000 + Math.random() * 3000;
+    if (ctx.agent.state !== AgentState.Waiting) {
+      ctx.eventBus.emit(EventType.AgentStateChanged, {
+        agentId: ctx.agent.id,
+        newState: AgentState.Waiting,
+      });
+    }
+  } else {
+    // 40% chance: just wait longer
+    timer.idleAction = 'waiting';
+    timer.nextActionTime = now + 5000 + Math.random() * 8000;
+    if (ctx.agent.state !== AgentState.Idle) {
+      ctx.eventBus.emit(EventType.AgentStateChanged, {
+        agentId: ctx.agent.id,
+        newState: AgentState.Idle,
+      });
+    }
+  }
+
   return BTNodeStatus.Running;
 }

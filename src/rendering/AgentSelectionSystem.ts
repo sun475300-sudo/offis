@@ -108,6 +108,12 @@ export class AgentSelectionSystem {
     return this.selectedAgentId;
   }
 
+  selectAgent(agentId: string): void {
+    this.selectedAgentId = agentId;
+    this.selectionRing.visible = true;
+    this.onSelectCallback?.(agentId);
+  }
+
   deselect(): void {
     this.selectedAgentId = null;
     this.selectionRing.visible = false;
