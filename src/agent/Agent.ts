@@ -37,6 +37,12 @@ export class Agent {
   private moveTarget: Vec2 | null = null;
   private avoidanceOffset: Vec2 = { x: 0, y: 0 };
 
+  // Bug 6 fix: provider for other agents' occupied cells
+  private occupiedCellsProvider: (() => GridCell[]) | null = null;
+
+  // Bug fix: store event handler to allow cleanup on destroy
+  private stateChangeHandler: ((event: any) => void) | null = null;
+
   constructor(
     config: AgentConfig,
     private tilemap: ITilemap,
@@ -54,6 +60,11 @@ export class Agent {
     this.behaviorTree = createAgentBehaviorTree();
 
     this.registerEventHandlers();
+  }
+
+  /** Bug 6 fix: inject a provider for dynamic obstacle positions */
+  setOccupiedCellsProvider(provider: () => GridCell[]): void {
+    this.occupiedCellsProvider = provider;
   }
 
   getSnapshot(): AgentSnapshot {
@@ -163,6 +174,10 @@ export class Agent {
     if (this.path.length === 0) {
       if (this.state === AgentState.Moving) {
         this.onArrived();
+      } else if (this.state === AgentState.Returning) {
+        // Bug 5 fix: agent arrived home — transition to Idle and release task
+        this.setState(AgentState.Idle);
+        this.completeTask();
       }
       return;
     }
@@ -256,7 +271,7 @@ export class Agent {
 
   private registerEventHandlers(): void {
     // Listen for state change events (from behavior tree)
-    this.eventBus.on(EventType.AgentStateChanged, (event) => {
+    this.stateChangeHandler = (event) => {
       const payload = event.payload as { agentId: string; newState: AgentState };
       if (payload.agentId !== this.id) return;
 
@@ -267,11 +282,20 @@ export class Agent {
           this.path = result.path.slice(1);
         }
       }
-    });
+    };
+    this.eventBus.on(EventType.AgentStateChanged, this.stateChangeHandler);
+  }
+
+  /** Bug fix: cleanup event handlers to prevent memory leak */
+  destroy(): void {
+    if (this.stateChangeHandler) {
+      this.eventBus.off(EventType.AgentStateChanged, this.stateChangeHandler);
+      this.stateChangeHandler = null;
+    }
   }
 
   private getOccupiedCells(): GridCell[] {
-    // This will be populated from the agent manager
-    return [];
+    // Bug 6 fix: delegate to the provider injected by AgentManager
+    return this.occupiedCellsProvider ? this.occupiedCellsProvider() : [];
   }
 }

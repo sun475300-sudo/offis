@@ -1,4 +1,4 @@
-import {
+﻿import {
   AgentRole,
   EventType,
   GridCell,
@@ -89,19 +89,19 @@ export class TaskService {
 
   markCompleted(taskId: string): void {
     const task = this.tasks.get(taskId);
-    if (task) {
-      task.status = TaskStatus.Completed;
-      task.progress = 1;
-      this.eventBus.emit(EventType.TaskCompleted, { taskId, agentId: task.assignedAgentId });
-    }
+    if (!task || task.status === TaskStatus.Completed) return; // guard against re-entry
+    task.status = TaskStatus.Completed;
+    task.progress = 1;
+    // NOTE: Do NOT re-emit TaskCompleted here — the caller (Orchestrator) already
+    // received the event from Agent. Re-emitting would cause infinite recursion.
   }
 
   markFailed(taskId: string): void {
     const task = this.tasks.get(taskId);
-    if (task) {
-      task.status = TaskStatus.Failed;
-      this.eventBus.emit(EventType.TaskFailed, { taskId });
-    }
+    if (!task || task.status === TaskStatus.Failed) return; // guard against re-entry
+    task.status = TaskStatus.Failed;
+    // NOTE: Do NOT re-emit TaskFailed here — the caller (Orchestrator) already
+    // received the event from Agent. Re-emitting would cause infinite recursion.
   }
 
   getCompletionReport(): { total: number; completed: number; failed: number; pending: number; inProgress: number } {

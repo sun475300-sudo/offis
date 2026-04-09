@@ -1,4 +1,4 @@
-import {
+﻿import {
   AgentConfig,
   AgentRole,
   AgentSnapshot,
@@ -31,6 +31,18 @@ export class AgentManager {
   /** Register a new agent into the system */
   addAgent(config: AgentConfig): Agent {
     const agent = new Agent(config, this.tilemap, this.pathfinder, this.eventBus);
+
+    // Bug 6 fix: inject provider so agent can see other agents' positions for pathfinding
+    agent.setOccupiedCellsProvider(() => {
+      const cells: GridCell[] = [];
+      for (const other of this.agents.values()) {
+        if (other === agent) continue;
+        const snap = other.getSnapshot();
+        cells.push(snap.gridCell);
+      }
+      return cells;
+    });
+
     this.agents.set(config.id, agent);
     return agent;
   }
