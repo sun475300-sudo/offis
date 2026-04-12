@@ -3,74 +3,67 @@
    ============================================================ */
 
 :root {
-  --bg-dark: #0d1117;
-  --bg-panel: #161b22;
-  --bg-input: #21262d;
-  --border-color: #30363d;
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --accent-green: #3fb950;
-  --accent-blue: #58a6ff;
-  --accent-orange: #d29922;
-  --accent-red: #f85149;
-  --accent-purple: #a371f7;
-  --accent-cyan: #39c5cf;
+  /* Premium Dark Theme Palette (HSL) */
+  --bg-dark: hsl(220, 25%, 7%);
+  --bg-panel: hsla(220, 25%, 12%, 0.75);
+  --bg-input: hsla(220, 25%, 18%, 0.8);
+  --border-color: hsla(220, 25%, 25%, 0.5);
   
-  /* Agent state colors */
-  --state-idle: #8b949e;
-  --state-moving: #3fb950;
-  --state-working: #d29922;
-  --state-returning: #58a6ff;
-  --state-waiting: #f85149;
-  --state-collaborating: #a371f7;
+  --text-primary: hsl(210, 40%, 95%);
+  --text-secondary: hsl(210, 15%, 70%);
+  
+  /* Vibrant Semantic Colors */
+  --accent-green: hsl(145, 65%, 55%);
+  --accent-blue: hsl(210, 90%, 65%);
+  --accent-orange: hsl(35, 95%, 55%);
+  --accent-red: hsl(0, 85%, 60%);
+  --accent-purple: hsl(265, 80%, 70%);
+  --accent-cyan: hsl(185, 85%, 50%);
+  
+  /* Agent state colors - Harmonized */
+  --state-idle: hsl(210, 10%, 60%);
+  --state-moving: var(--accent-green);
+  --state-working: var(--accent-orange);
+  --state-returning: var(--accent-blue);
+  --state-waiting: var(--accent-red);
+  --state-collaborating: var(--accent-purple);
 
+  /* Modern Glassmorphism Tokens */
+  --glass-blur: blur(16px);
+  --glass-border: 1px solid hsla(0, 0%, 100%, 0.1);
+  --glass-shadow: 0 12px 40px hsla(0, 0%, 0%, 0.5);
+  
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Transitions */
+  --transition-smooth: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-snap: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Light theme */
+/* Light theme overhaul */
 [data-theme="light"] {
-  --bg-dark: #ffffff;
-  --bg-panel: #f6f8fa;
-  --bg-input: #e1e4e8;
-  --border-color: #d0d7de;
-  --text-primary: #24292f;
-  --text-secondary: #57606a;
-  --accent-green: #2da44e;
-  --accent-blue: #0969da;
-  --accent-orange: #bf8700;
-  --accent-red: #cf222e;
-  --accent-purple: #8250df;
-  --accent-cyan: #1b7c83;
-}
-
-/* Theme toggle button */
-.theme-toggle-btn {
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.theme-toggle-btn:hover {
-  background: var(--border-color);
-}
-
-#theme-icon {
-  font-size: 16px;
+  --bg-dark: hsl(210, 20%, 98%);
+  --bg-panel: hsla(210, 20%, 100%, 0.85);
+  --bg-input: hsla(210, 20%, 92%, 0.8);
+  --border-color: hsla(210, 20%, 85%, 0.5);
+  --text-primary: hsl(210, 30%, 15%);
+  --text-secondary: hsl(210, 10%, 40%);
+  --glass-shadow: 0 8px 32px hsla(210, 20%, 10%, 0.1);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 body {
   font-family: var(--font-sans);
   background: var(--bg-dark);
+  background: radial-gradient(circle at 50% 50%, hsl(220, 25%, 10%) 0%, hsl(220, 25%, 5%) 100%);
   color: var(--text-primary);
   overflow: hidden;
   height: 100vh;
@@ -83,144 +76,101 @@ body {
 }
 
 /* ============================================================
-   Header
+   Glassmorphism Base Layer
    ============================================================ */
 
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+
+.glass-panel:hover {
+  border-color: hsla(0, 0%, 100%, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Header Overhaul */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 16px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border-color);
+  padding: 10px 24px;
+  background: hsla(220, 25%, 8%, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid hsla(220, 25%, 20%, 0.5);
   z-index: 100;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logo-icon {
-  font-size: 24px;
 }
 
 .logo-text {
   font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--accent-cyan);
+  font-size: 20px;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 1px;
 }
 
 .logo-badge {
   font-size: 10px;
-  padding: 3px 8px;
-  background: var(--accent-purple);
-  border-radius: 10px;
+  padding: 2px 10px;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+  border-radius: 20px;
   color: white;
-  font-weight: 600;
-}
-
-.header-stats {
-  display: flex;
-  gap: 24px;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-label {
-  font-size: 9px;
-  color: var(--text-secondary);
-  letter-spacing: 1px;
-  font-family: var(--font-mono);
-}
-
-.stat-value {
-  font-size: 20px;
   font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--accent-green);
+  box-shadow: 0 4px 12px hsla(265, 80%, 70%, 0.3);
 }
 
-/* ============================================================
-   Game Container
-   ============================================================ */
-
-.game-container {
-  flex: 1;
-  position: relative;
-  background: #1a1f26;
-  overflow: hidden;
-}
-
-#game-canvas {
-  width: 100%;
-  height: 100%;
-}
-
-#game-canvas canvas {
-  display: block;
-}
-
-/* ============================================================
-   Agent Status Panel
-   ============================================================ */
-
+/* Agent Status Panel Overhaul */
 .agent-status-panel {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 240px;
-  max-height: 45%;
+  top: 12px;
+  right: 12px;
+  width: 280px;
+  max-height: 50%;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
-  opacity: 0.92;
+  z-index: 50;
 }
 
 .history-panel {
   position: absolute;
   bottom: 40px;
-  right: 8px;
-  width: 240px;
-  max-height: 200px;
+  right: 12px;
+  width: 280px;
+  max-height: 220px;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  opacity: 0.92;
-}
-
-.history-panel.minimized {
-  display: none;
-}
-
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 200px;
+  z-index: 50;
 }
 
 .history-item {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: var(--transition-smooth);
 }
 
 .history-item:hover {
-  background: var(--bg-input);
+  background: hsla(0, 0%, 100%, 0.05);
+  padding-left: 20px;
 }
 
 .history-item:last-child {
@@ -565,67 +515,59 @@ body {
 .agent-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-color);
-  transition: background 0.2s;
+  transition: var(--transition-smooth);
 }
 
 .agent-item:hover {
-  background: var(--bg-input);
-}
-
-.agent-item:last-child {
-  border-bottom: none;
+  background: hsla(0, 0%, 100%, 0.05);
 }
 
 .agent-avatar {
-  width: 32px;
-  height: 32px;
-  background: var(--accent-blue);
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   position: relative;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
 }
 
 .agent-avatar::after {
   content: '';
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
+  bottom: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid var(--bg-panel);
-}
-
-.agent-item[data-state="idle"] .agent-avatar::after { background: var(--state-idle); }
-.agent-item[data-state="moving"] .agent-avatar::after { background: var(--state-moving); }
-.agent-item[data-state="working"] .agent-avatar::after { background: var(--state-working); }
-.agent-item[data-state="returning"] .agent-avatar::after { background: var(--state-returning); }
-.agent-item[data-state="waiting"] .agent-avatar::after { background: var(--state-waiting); }
-
-.agent-info {
-  flex: 1;
+  box-shadow: 0 0 8px hsla(0, 0%, 0%, 0.5);
 }
 
 .agent-name {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .agent-role {
   font-size: 10px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
+  margin-top: 1px;
 }
 
 .agent-state {
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: 10px;
+  font-size: 9px;
+  padding: 4px 10px;
+  border-radius: 20px;
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .agent-state[data-state="idle"] { background: var(--state-idle); color: #000; }
