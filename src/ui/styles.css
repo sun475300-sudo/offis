@@ -145,10 +145,10 @@ body {
 
 .history-panel {
   position: absolute;
-  bottom: 40px;
-  right: 12px;
-  width: 280px;
-  max-height: 220px;
+  bottom: 120px;
+  right: 16px;
+  width: 320px;
+  max-height: 250px;
   background: var(--bg-panel);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -254,14 +254,14 @@ body {
 
 .monitor-panel {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 220px;
+  top: 16px;
+  left: 16px;
+  width: 240px;
   background: var(--bg-panel);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow: var(--glass-shadow);
   overflow: hidden;
   z-index: 50;
@@ -314,18 +314,18 @@ body {
 
 .test-dashboard-panel {
   position: absolute;
-  bottom: 250px;
-  right: 12px;
+  top: 80px;
+  right: 16px;
   width: 320px;
   background: var(--bg-panel);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow: var(--glass-shadow);
   overflow: hidden;
   z-index: 50;
-  max-height: 60%;
+  max-height: 70%;
 }
 
 .test-dashboard-panel.minimized {
