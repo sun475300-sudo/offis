@@ -85,10 +85,12 @@ export class PixelOfficeApp {
     this.eventBus = new EventBus();
     this.tilemap = new Tilemap(MAP_WIDTH, MAP_HEIGHT);
     this.pathfinder = new Pathfinder(this.tilemap);
-    this.agentManager = new AgentManager(this.eventBus, this.pathfinder, this.tilemap);
-    this.orchestrator = new Orchestrator(this.eventBus, this.agentManager, this.tilemap);
-    this.cliEngine = new CLIEngine();
     
+    // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
+    this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
+    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus);
+    
+    this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();
     this.toastManager = new ToastManager();
     this.chatSystem = new ChatSystem(this.eventBus);
@@ -99,14 +101,17 @@ export class PixelOfficeApp {
   }
 
   private initRendering(): void {
+    const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+    
     this.app = new PIXI.Application({
-      view: document.getElementById('game-canvas') as HTMLCanvasElement,
+      view: canvas,
       width: window.innerWidth,
       height: window.innerHeight - 150,
-      backgroundColor: 0x0d1117,
+      backgroundColor: 0x05070a, // Match --bg-dark
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
+      backgroundAlpha: 0, // Allow CSS background to show through if needed
     });
 
     this.rootContainer = new PIXI.Container();

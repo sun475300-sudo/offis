@@ -254,15 +254,17 @@ body {
 
 .monitor-panel {
   position: absolute;
-  bottom: 40px;
-  left: 8px;
-  width: 200px;
+  top: 12px;
+  left: 12px;
+  width: 220px;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
-  opacity: 0.92;
+  z-index: 50;
   max-height: 50%;
 }
 
@@ -312,15 +314,17 @@ body {
 
 .test-dashboard-panel {
   position: absolute;
-  bottom: 40px;
-  right: 8px;
-  width: 300px;
+  bottom: 250px;
+  right: 12px;
+  width: 320px;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
-  opacity: 0.92;
+  z-index: 50;
   max-height: 60%;
 }
 
@@ -915,16 +919,21 @@ body {
 .repo-editor-panel {
   position: absolute;
   top: 60px;
-  left: 16px;
-  width: 800px;
-  height: 500px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 1000px;
+  height: 600px;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
   display: none;
   flex-direction: column;
   overflow: hidden;
+  z-index: 200;
 }
 
 .repo-editor-panel.visible {
@@ -1074,18 +1083,20 @@ body {
 
 .chat-panel {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 260px;
-  height: 280px;
+  bottom: 40px;
+  left: 12px;
+  width: 300px;
+  height: 320px;
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  opacity: 0.92;
+  z-index: 60;
 }
 
 .chat-panel.minimized .chat-messages,
