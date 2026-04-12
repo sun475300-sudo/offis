@@ -1,4 +1,15 @@
 import * as PIXI from 'pixi.js';
+
+// Diagnostic: Global error handler to see silent crashes
+window.onerror = (msg, url, line, col, error) => {
+  const log = document.createElement('div');
+  log.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;background:red;color:white;padding:10px;font-family:monospace;';
+  log.textContent = `CRASH: ${msg} at ${line}:${col}`;
+  document.body.appendChild(log);
+  return false;
+};
+
+console.log('Offis Boot Sequence Started');
 import { 
   AgentRole, 
   AgentState, 
@@ -220,8 +231,11 @@ export class PixelOfficeApp {
 
       // Update Systems
       this.agentManager.update(deltaTime);
-      this.orchestrator.update(deltaTime);
-      this.collaborationSystem.update(deltaTime);
+      // NOTE: Orchestrator might not have a frame-by-frame update method, 
+      // but it handles its own dispatch loop or state. 
+      // Removed non-existent this.orchestrator.update(deltaTime);
+      
+      if (this.collaborationSystem) this.collaborationSystem.update();
       this.camera.update(deltaTime);
       this.particleSystem.update(deltaTime);
       this.speechBubbleRenderer.update(deltaTime);
@@ -229,15 +243,16 @@ export class PixelOfficeApp {
 
       // Rendering
       const snaps = this.agentManager.getAllAgents().map(a => a.getSnapshot());
-      this.agentRenderer.renderAgents(snaps);
+      this.agentRenderer.update(snaps, deltaTime);
 
       // UI Update (Throttled)
       if (Math.random() < 0.1) {
+        const report = this.orchestrator.getTaskReport();
         this.hud.updateStats({
           agents: snaps.length,
           idle: snaps.filter(s => s.state === AgentState.Idle).length,
           working: snaps.filter(s => s.state === AgentState.Working).length,
-          tasks: this.orchestrator.getTaskReport().pending,
+          tasks: report.pending + report.inProgress,
           fps: Math.round(this.app.ticker.FPS)
         });
         this.hud.updateAgentPanel(snaps);
@@ -247,6 +262,8 @@ export class PixelOfficeApp {
 }
 
 // Entry Point
-document.addEventListener('DOMContentLoaded', () => {
-  new PixelOfficeApp();
-});
+// Initialize the application directly
+const app = new PixelOfficeApp();
+
+// Optional: expose for debugging
+(window as any).__PIXEL_OFFICE__ = app;
