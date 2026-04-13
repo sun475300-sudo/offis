@@ -14,7 +14,7 @@ import { GitHubService } from '../services/GitHubService';
 import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
 import { testSuite, StressTestConfig } from '../services/TestSuite';
 import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, systemReport } from '../services/FeatureServices';
-import { getHarness, getHarnessSummary, buildSystemPrompt } from '../services/AgentHarness';
+import { getHarness, getHarnessSummary, buildSystemPrompt, sessionManager } from '../services/AgentHarness';
 
 export interface CLIContext {
   agentManager: AgentManager;
@@ -510,6 +510,39 @@ function registerMetaSkillCommands(ctx: CLIContext) {
     handler: async (args) => {
       const role = (args[0] as AgentRole) || AgentRole.Backend;
       return buildSystemPrompt(role, '현재 오피스 시스템 컨텍스트');
+    },
+  });
+
+  // ── /session — Managed Agent Sessions 조회 (Anthropic Managed Agents 개념)
+  // 참조: https://youtu.be/IAEV_fUAdWk
+  cliEngine.registerCommand({
+    name: 'session',
+    aliases: ['세션', 'sessions', 's'],
+    description: 'Managed Agent 세션 목록 조회 / 상세 메모리 보기',
+    usage: '/session [session-id | demo]',
+    handler: async (args) => {
+      if (args[0] === 'demo') {
+        // 데모: 현재 에이전트들로 샘플 세션 생성
+        const agents = agentManager.getAllAgents().slice(0, 5);
+        for (const agent of agents) {
+          const session = sessionManager.startSession(agent.id, agent.role, `${agent.role} 전담 태스크`);
+          sessionManager.addMemory(session.id, `${agent.name}(${agent.role}) 세션 초기화 완료`);
+          sessionManager.addMemory(session.id, `하네스 로드: T=${getHarness(agent.role).temperature}, ctx=${getHarness(agent.role).contextStrategy}`);
+          sessionManager.logToolCall(session.id, {
+            toolName: getHarness(agent.role).availableTools[0]?.name ?? 'init',
+            input: { agentId: agent.id },
+            output: '초기화 성공',
+            durationMs: Math.floor(Math.random() * 200 + 50),
+          });
+        }
+        return `✅ ${agents.length}개의 데모 세션을 생성했습니다.\n→ /session 으로 세션 목록을 확인하세요.`;
+      }
+
+      if (args[0]) {
+        return sessionManager.getSessionDetail(args[0]);
+      }
+
+      return sessionManager.getSummary();
     },
   });
 }

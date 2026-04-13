@@ -338,3 +338,215 @@ export function getHarnessSummary(): string {
     '→ /harness <role> 로 특정 역할 상세 조회',
   ].join('\n');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MANAGED AGENT SESSIONS
+//  출처: Anthropic Managed Agents 개념
+//  (https://youtu.be/IAEV_fUAdWk — 코드팩토리 "하네싱. Managed Agents!")
+//
+//  핵심: 에이전트는 매 태스크마다 처음부터 시작하지 않는다.
+//  세션(Session)은 에이전트의 기억과 컨텍스트를 유지하는 단위이다.
+//  → Quickstart: 빠른 1회성 작업
+//  → Agent: 역할별 설정 (Harness)
+//  → Session: 에이전트 × 작업 × 상태의 조합
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type SessionState = 'idle' | 'active' | 'paused' | 'completed' | 'error';
+
+export interface ToolCallRecord {
+  toolName: string;
+  input: unknown;
+  output: string;
+  timestamp: number;
+  durationMs: number;
+}
+
+export interface ManagedAgentSession {
+  /** 세션 고유 ID */
+  id: string;
+  /** 담당 에이전트 ID */
+  agentId: string;
+  /** 담당 에이전트 역할 */
+  role: AgentRole;
+  /** 세션 상태: idle → active → paused / completed / error */
+  state: SessionState;
+  /** 세션 생성 시각 */
+  createdAt: number;
+  /** 마지막 활동 시각 */
+  lastActiveAt: number;
+  /** 누적 컨텍스트 (메모리) */
+  contextMemory: string[];
+  /** 도구 호출 이력 */
+  toolCallLog: ToolCallRecord[];
+  /** 완료된 태스크 수 */
+  tasksCompleted: number;
+  /** 총 토큰 사용량 추정치 */
+  estimatedTokensUsed: number;
+  /** 현재 수행 중인 태스크 설명 */
+  currentTask?: string;
+}
+
+/**
+ * Managed Agent Session Manager
+ * — 에이전트별 세션을 생성·추적·재개합니다.
+ */
+export class ManagedAgentSessionManager {
+  private static instance: ManagedAgentSessionManager;
+  private sessions: Map<string, ManagedAgentSession> = new Map();
+  private sessionCounter = 0;
+
+  static getInstance(): ManagedAgentSessionManager {
+    if (!this.instance) this.instance = new ManagedAgentSessionManager();
+    return this.instance;
+  }
+
+  /** 에이전트에 대한 새 세션을 시작하거나 기존 세션을 재개합니다 */
+  startSession(agentId: string, role: AgentRole, task?: string): ManagedAgentSession {
+    const existing = this.getActiveSession(agentId);
+    if (existing) {
+      existing.state = 'active';
+      existing.lastActiveAt = Date.now();
+      if (task) existing.currentTask = task;
+      return existing;
+    }
+
+    const session: ManagedAgentSession = {
+      id: `session-${++this.sessionCounter}-${agentId}`,
+      agentId,
+      role,
+      state: 'active',
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+      contextMemory: [],
+      toolCallLog: [],
+      tasksCompleted: 0,
+      estimatedTokensUsed: 0,
+      currentTask: task,
+    };
+
+    this.sessions.set(session.id, session);
+    return session;
+  }
+
+  /** 에이전트의 활성 세션을 반환합니다 */
+  getActiveSession(agentId: string): ManagedAgentSession | undefined {
+    for (const s of this.sessions.values()) {
+      if (s.agentId === agentId && (s.state === 'active' || s.state === 'paused')) {
+        return s;
+      }
+    }
+    return undefined;
+  }
+
+  /** 세션에 컨텍스트 메모리를 추가합니다 */
+  addMemory(sessionId: string, memory: string): void {
+    const s = this.sessions.get(sessionId);
+    if (!s) return;
+    s.contextMemory.push(`[${new Date(Date.now()).toLocaleTimeString()}] ${memory}`);
+    s.estimatedTokensUsed += Math.ceil(memory.length / 4);
+    s.lastActiveAt = Date.now();
+    // 최대 50개 메모리 유지
+    if (s.contextMemory.length > 50) s.contextMemory.shift();
+  }
+
+  /** 도구 호출을 기록합니다 */
+  logToolCall(sessionId: string, record: Omit<ToolCallRecord, 'timestamp'>): void {
+    const s = this.sessions.get(sessionId);
+    if (!s) return;
+    s.toolCallLog.push({ ...record, timestamp: Date.now() });
+    // 최대 20개 도구 호출 유지
+    if (s.toolCallLog.length > 20) s.toolCallLog.shift();
+  }
+
+  /** 세션을 완료 처리합니다 */
+  completeSession(sessionId: string): void {
+    const s = this.sessions.get(sessionId);
+    if (!s) return;
+    s.state = 'completed';
+    s.tasksCompleted++;
+    s.lastActiveAt = Date.now();
+  }
+
+  /** 세션을 일시 중지합니다 */
+  pauseSession(sessionId: string): void {
+    const s = this.sessions.get(sessionId);
+    if (s) s.state = 'paused';
+  }
+
+  /** 모든 세션 목록을 반환합니다 */
+  getAllSessions(): ManagedAgentSession[] {
+    return Array.from(this.sessions.values());
+  }
+
+  /** 세션 현황 요약 텍스트 (CLI /session 명령용) */
+  getSummary(): string {
+    const all = this.getAllSessions();
+    if (all.length === 0) {
+      return [
+        '╔══════════════════════════════════════════════════╗',
+        '║  📋  Managed Agent Sessions                       ║',
+        '╚══════════════════════════════════════════════════╝',
+        '',
+        '  활성 세션 없음. 에이전트에게 작업을 배정하면 세션이 시작됩니다.',
+        '',
+        '  Anthropic Managed Agents 구조:',
+        '  [Quickstart] → 빠른 1회성 실행',
+        '  [Agent]      → 역할별 하네스(시스템 프롬프트+툴) 설정',
+        '  [Session]    → 에이전트 × 작업 × 메모리 상태 유지',
+      ].join('\n');
+    }
+
+    const stateIcon: Record<SessionState, string> = {
+      idle: '⚪', active: '🟢', paused: '🟡', completed: '✅', error: '🔴',
+    };
+
+    const rows = all.slice(-10).map(s => {
+      const age = Math.round((Date.now() - s.createdAt) / 1000);
+      const mem = s.contextMemory.length;
+      const tools = s.toolCallLog.length;
+      return `  ${stateIcon[s.state]} ${s.id.padEnd(28)} mem:${mem} tools:${tools} ${age}s`;
+    });
+
+    return [
+      '╔══════════════════════════════════════════════════════════════╗',
+      '║  📋  Managed Agent Sessions (최근 10개)                      ║',
+      '╚══════════════════════════════════════════════════════════════╝',
+      '',
+      `  전체: ${all.length}개 | 활성: ${all.filter(s => s.state === 'active').length}개 | 완료: ${all.filter(s => s.state === 'completed').length}개`,
+      '',
+      ...rows,
+      '',
+      '  /session <id> 로 특정 세션 메모리 조회',
+    ].join('\n');
+  }
+
+  /** 특정 세션 상세 정보 */
+  getSessionDetail(sessionId: string): string {
+    const s = this.sessions.get(sessionId);
+    if (!s) return `❌ 세션을 찾을 수 없습니다: ${sessionId}`;
+
+    const memLines = s.contextMemory.slice(-5).map(m => `  │ ${m}`).join('\n');
+    const toolLines = s.toolCallLog.slice(-3).map(t =>
+      `  │ ${t.toolName} (${t.durationMs}ms): ${t.output.substring(0, 50)}`
+    ).join('\n');
+
+    return [
+      `🔍 세션 상세: ${s.id}`,
+      `  에이전트: ${s.agentId} (${s.role})`,
+      `  상태: ${s.state}`,
+      `  현재 태스크: ${s.currentTask ?? '없음'}`,
+      `  토큰 사용량: ~${s.estimatedTokensUsed}`,
+      `  완료 태스크: ${s.tasksCompleted}`,
+      ``,
+      `  📝 최근 메모리 (${s.contextMemory.length}개 중 최근 5개):`,
+      memLines || '  │ (없음)',
+      ``,
+      `  🛠️ 최근 도구 호출 (${s.toolCallLog.length}개 중 최근 3개):`,
+      toolLines || '  │ (없음)',
+    ].join('\n');
+  }
+}
+
+/** 글로벌 세션 매니저 싱글톤 */
+export const sessionManager = ManagedAgentSessionManager.getInstance();
+
