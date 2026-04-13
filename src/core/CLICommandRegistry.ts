@@ -14,6 +14,7 @@ import { GitHubService } from '../services/GitHubService';
 import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
 import { testSuite, StressTestConfig } from '../services/TestSuite';
 import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, systemReport } from '../services/FeatureServices';
+import { getHarness, getHarnessSummary, buildSystemPrompt } from '../services/AgentHarness';
 
 export interface CLIContext {
   agentManager: AgentManager;
@@ -463,5 +464,52 @@ function registerMetaSkillCommands(ctx: CLIContext) {
       return results.join('\n');
     },
   });
-}
 
+  // ── /harness — 에이전트 하네스 현황 (Harness Engineering 개념)
+  cliEngine.registerCommand({
+    name: 'harness',
+    aliases: ['하네스', 'h'],
+    description: '에이전트 역할별 하네스(시스템 프롬프트+툴+컨텍스트) 현황 조회',
+    usage: '/harness [role]',
+    handler: async (args) => {
+      if (args[0]) {
+        // 특정 역할 상세 조회
+        const roleKey = args[0] as AgentRole;
+        const harness = getHarness(roleKey);
+        if (!harness) return `❌ 알 수 없는 역할: ${args[0]}`;
+        const toolList = harness.availableTools.map(t =>
+          `  ${t.emoji} ${t.name.padEnd(20)} — ${t.description}`
+        ).join('\n');
+        return [
+          `🔧 하네스: ${harness.role}`,
+          ``,
+          `📜 시스템 프롬프트:`,
+          harness.systemPrompt.split('\n').map(l => `  ${l}`).join('\n'),
+          ``,
+          `🛠️ 툴셋:`,
+          toolList,
+          ``,
+          `⚙️ 설정:`,
+          `  컨텍스트 전략: ${harness.contextStrategy}`,
+          `  최대 토큰:     ${harness.maxContextTokens}`,
+          `  Temperature:   ${harness.temperature}`,
+          ``,
+          `💬 격언: "${harness.motto}"`,
+        ].join('\n');
+      }
+      return getHarnessSummary();
+    },
+  });
+
+  // ── /persona <role> — 특정 역할 LLM 시스템 프롬프트 전체 출력
+  cliEngine.registerCommand({
+    name: 'persona',
+    aliases: ['페르소나', 'p'],
+    description: '특정 에이전트 역할의 전체 시스템 프롬프트+툴 목록 출력',
+    usage: '/persona <role>',
+    handler: async (args) => {
+      const role = (args[0] as AgentRole) || AgentRole.Backend;
+      return buildSystemPrompt(role, '현재 오피스 시스템 컨텍스트');
+    },
+  });
+}
