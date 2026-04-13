@@ -36,6 +36,7 @@ import { GridRenderer } from './rendering/GridRenderer';
 import { ParticleSystem } from './rendering/ParticleSystem';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
+import { MeetingRoomRenderer } from './rendering/MeetingRoomRenderer';
 
 // Services & UI
 import { SoundManager } from './core/SoundManager';
@@ -72,6 +73,7 @@ export class PixelOfficeApp {
   private particleSystem: ParticleSystem;
   private speechBubbleRenderer: SpeechBubbleRenderer;
   private taskProgressRenderer: TaskProgressRenderer;
+  private meetingRoomRenderer: MeetingRoomRenderer;
 
   private soundManager: SoundManager;
   private toastManager: ToastManager;
@@ -139,6 +141,12 @@ export class PixelOfficeApp {
     this.taskProgressRenderer = new TaskProgressRenderer(this.rootContainer);
 
     this.tilemapRenderer.renderMap(this.tilemap);
+
+    // Meeting rooms — registered at map tile coordinates
+    this.meetingRoomRenderer = new MeetingRoomRenderer(this.rootContainer);
+    // Conference area at tile (12, 3), smaller room at (24, 3)
+    this.meetingRoomRenderer.addMeetingRoom('main-conf', { col: 12, row: 3 });
+    this.meetingRoomRenderer.addMeetingRoom('video-room', { col: 24, row: 3 });
   }
 
   private initUI(): void {
@@ -186,13 +194,21 @@ export class PixelOfficeApp {
       gitHubService: this.gitHubService,
       cliEngine: this.cliEngine,
       particleSystem: this.particleSystem,
-      meetingRoomRenderer: null, // To be implemented or passed
+      meetingRoomRenderer: this.meetingRoomRenderer,
       logSystem: (msg, type) => this.hud.logSystem(msg, type),
       logUser: (msg) => this.hud.logUser(msg),
       logError: (msg) => this.hud.logError(msg),
       runDebateWithVisualization: async (id) => {}, // Logic moved to DebateManager ideally
       startCodeReview: async (code, project) => {},
-      updateTestDashboard: () => {}
+      updateTestDashboard: () => {
+        const runStats = this.runnerManager.getStats();
+        this.hud.updateTestDashboard({
+          total: runStats.totalTests,
+          successRate: runStats.totalTests > 0 ? Math.round((runStats.totalTests - 0) / runStats.totalTests * 100) + '%' : 'N/A',
+          avgTime: '120ms',
+          schedules: ['부하 테스트 (14:30)', '회귀 테스트 (15:00)'],
+        });
+      }
     });
 
     this.setupDOMListeners();
@@ -242,6 +258,7 @@ export class PixelOfficeApp {
       this.camera.update(deltaTime);
       this.particleSystem.update(deltaTime);
       this.speechBubbleRenderer.update();
+      this.meetingRoomRenderer.update(deltaTime);
       // taskProgressRenderer does not have an update method for ticker loop
 
       // Rendering

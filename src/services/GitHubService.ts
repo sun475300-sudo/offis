@@ -64,19 +64,75 @@ export class GitHubService {
   private token: string = '';
   private baseUrl: string = 'https://api.github.com';
 
+  constructor() {
+    // Auto-detect GitHub token from Vite environment
+    const envToken = (import.meta as any).env?.VITE_GITHUB_TOKEN;
+    if (envToken) {
+      this.token = envToken;
+      console.log('[GitHubService] 🟢 Auto-detected GITHUB_TOKEN — real API enabled');
+    } else {
+      console.log('[GitHubService] ⚪ No VITE_GITHUB_TOKEN found — API calls will be unauthenticated (rate limited)');
+    }
+  }
+
   setToken(token: string): void {
     this.token = token;
   }
 
-  private getHeaders(): HeadersInit {
+  isAuthenticated(): boolean {
+    return !!this.token;
+  }
+
+  private getHeaders(acceptDiff = false): HeadersInit {
     const headers: HeadersInit = {
-      'Accept': 'application/vnd.github.v3+json',
+      'Accept': acceptDiff ? 'application/vnd.github.v3.diff' : 'application/vnd.github.v3+json',
     };
     if (this.token) {
       headers['Authorization'] = `token ${this.token}`;
     }
     return headers;
   }
+
+  /** Fetch open pull requests for a repo */
+  async getPullRequests(owner: string, repo: string, state: 'open' | 'closed' | 'all' = 'open'): Promise<GitHubPullRequest[]> {
+    const url = `${this.baseUrl}/repos/${owner}/${repo}/pulls?state=${state}&per_page=10`;
+    try {
+      const response = await fetch(url, { headers: this.getHeaders() });
+      if (!response.ok) throw new Error(`GitHub PR API error: ${response.status}`);
+      const data = await response.json();
+      return data.map((pr: any) => ({
+        number: pr.number,
+        title: pr.title,
+        body: pr.body || '',
+        state: pr.state,
+        author: pr.user?.login || 'unknown',
+        createdAt: pr.created_at,
+        headBranch: pr.head?.ref || '',
+        baseBranch: pr.base?.ref || 'main',
+        changedFiles: pr.changed_files || 0,
+        additions: pr.additions || 0,
+        deletions: pr.deletions || 0,
+      }));
+    } catch (e) {
+      console.warn('[GitHubService] getPullRequests failed:', e);
+      return [];
+    }
+  }
+
+  /** Fetch the raw unified diff for a specific PR */
+  async getPRDiff(owner: string, repo: string, prNumber: number): Promise<string> {
+    const url = `${this.baseUrl}/repos/${owner}/${repo}/pulls/${prNumber}`;
+    try {
+      const response = await fetch(url, { headers: this.getHeaders(true) });
+      if (!response.ok) throw new Error(`GitHub Diff API error: ${response.status}`);
+      return await response.text();
+    } catch (e) {
+      console.warn('[GitHubService] getPRDiff failed:', e);
+      return '';
+    }
+  }
+
+
 
   async getRepo(owner: string, repo: string): Promise<GitHubRepo> {
     const response = await fetch(`${this.baseUrl}/repos/${owner}/${repo}`, {

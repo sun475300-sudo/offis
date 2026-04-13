@@ -59,16 +59,36 @@ export class HUDManager {
 
     // Use a template-based approach or simplified innerHTML for now to match main.ts
     // In a full refactor, this would be more efficient
-    list.innerHTML = agents.map(agent => `
+    list.innerHTML = agents.map(agent => {
+      // Provide a fallback color based on role if agent.color is undefined in Snapshot
+      const safeColor = agent.color ?? this.getRoleColor(agent.role);
+      const colorHex = safeColor.toString(16).padStart(6, '0');
+      return `
       <div class="agent-item" data-id="${agent.id}" data-state="${agent.state}">
-        <div class="agent-avatar" style="background-color: #${agent.color.toString(16).padStart(6, '0')}"></div>
+        <div class="agent-avatar" style="background-color: #${colorHex}"></div>
         <div class="agent-info">
           <div class="agent-name">${agent.name}</div>
           <div class="agent-role">${agent.role}</div>
         </div>
         <div class="agent-state" data-state="${agent.state}">${agent.state}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
+  }
+
+  private getRoleColor(role: string): number {
+    const ROLE_COLORS: Record<string, number> = {
+      frontend: 0x4FC3F7,
+      backend: 0x81C784,
+      designer: 0xFFB74D,
+      pm: 0xE57373,
+      qa: 0xBA68C8,
+      devops: 0x90A4AE,
+      architect: 0x7E57C2,
+      security: 0xEF5350,
+      performance: 0x26A69A,
+    };
+    return ROLE_COLORS[role] || 0xAAAAAA;
   }
 
   logSystem(message: string, type: string = 'info'): void {

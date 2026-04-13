@@ -65,8 +65,27 @@ export class LLMService {
   private config: LLMServiceConfig;
   private decisionHistory: { prompt: string; decision: string; timestamp: number }[] = [];
 
-  constructor(config: LLMServiceConfig = { provider: 'mock' }) {
-    this.config = config;
+  constructor(config?: LLMServiceConfig) {
+    // Auto-detect API keys from Vite env variables
+    const anthropicKey = (import.meta as any).env?.VITE_ANTHROPIC_API_KEY;
+    const openaiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
+    const minimaxKey = (import.meta as any).env?.VITE_MINIMAX_API_KEY;
+
+    if (config) {
+      this.config = config;
+    } else if (anthropicKey) {
+      this.config = { provider: 'claude', apiKey: anthropicKey };
+      console.log('[LLMService] 🟢 Auto-detected Anthropic key — using Claude API');
+    } else if (openaiKey) {
+      this.config = { provider: 'openai', apiKey: openaiKey };
+      console.log('[LLMService] 🟢 Auto-detected OpenAI key — using GPT-4');
+    } else if (minimaxKey) {
+      this.config = { provider: 'minimax', apiKey: minimaxKey };
+      console.log('[LLMService] 🟢 Auto-detected Minimax key — using Minimax API');
+    } else {
+      this.config = { provider: 'mock' };
+      console.log('[LLMService] ⚪ No API key found — running in Mock mode');
+    }
   }
 
   /**

@@ -11,7 +11,7 @@ import { ChatSystem } from './ChatSystem';
 import { DebateManager } from '../debate/DebateManager';
 import { RunnerManager, FeedbackLoopState } from '../debate/RunnerManager';
 import { GitHubService } from '../services/GitHubService';
-import { AgentRole, AgentState, TaskPriority, TaskStatus } from '../types';
+import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
 import { testSuite, StressTestConfig } from '../services/TestSuite';
 import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, systemReport } from '../services/FeatureServices';
 
@@ -134,9 +134,19 @@ export function registerAllCommands(ctx: CLIContext): void {
       const meeting = collaborationSystem.callMeeting(meetingType, roles, 'Team sync', 12);
       if (meeting) {
         soundManager.playMeetingStart();
+        // Activate visual meeting room renderer
+        const { meetingRoomRenderer } = ctx;
+        if (meetingRoomRenderer) {
+          const roomId = meetingType === MeetingType.VideoConference ? 'video-room' : 'main-conf';
+          meetingRoomRenderer.activateRoom(roomId, meeting.participants);
+          // Auto-deactivate after 5 minutes
+          setTimeout(() => meetingRoomRenderer.deactivateRoom(roomId), 5 * 60 * 1000);
+        }
         if (meetingType === MeetingType.VideoConference) {
           toastManager.info('Video Meeting', `화상 회의 시작: ${meeting.participants.length}명 참가`);
           logSystem(`📹 화상 회의실 활성화: ${meeting.participants.length}명`, 'system');
+        } else {
+          logSystem(`🤝 회의실 활성화: ${meetingType} (${meeting.participants.length}명)`, 'system');
         }
         return `Meeting started: ${meeting.type} with ${meeting.participants.length} participants`;
       }
@@ -175,35 +185,51 @@ function registerTestCommands(ctx: CLIContext): void {
     description: 'Run stress test on the system',
     usage: '/test [agents] [concurrent] [duration]',
     handler: async (args) => {
-      const agentCount = parseInt(args[0]) || 10;
-      const concurrent = parseInt(args[1]) || 3;
-      const duration = parseInt(args[2]) || 5;
+      const agentTarget = parseInt(args[0]) || 30;
+      const taskCount = parseInt(args[1]) || 50;
       
-      logSystem(`🔧 부하 테스트 시작: 에이전트 ${agentCount}개, 동시 ${concurrent}개, ${duration}초`, 'system');
-      toastManager.info('Stress Test', `에이전트 ${agentCount}개 테스트 중...`);
+      logSystem(`🔧 시각적 부하 테스트 시작: 목표 에이전트 ${agentTarget}명, 작업 ${taskCount}개`, 'system');
+      toastManager.info('Stress Test', `시각적 부하 테스트 스폰 중...`);
       
-      const config: StressTestConfig = {
-        agentCount,
-        concurrentTasks: concurrent,
-        duration,
-        codeReviewCount: Math.floor(agentCount / 3),
-      };
+      const roles = Object.values(AgentRole);
       
-      const result = await testSuite.runStressTest(config, {
-        onAgentSpawn: (count) => {
-          if (count % 5 === 0) logSystem(`에이전트 생성 중: ${count}/${agentCount}`, 'system');
-        },
-        onTaskComplete: (taskId, dur) => {
-          logSystem(`✅ 작업 완료: ${taskId} (${dur}ms)`, 'system');
-        },
-        onError: (err) => logError(err),
-      });
+      // 1. 맞춰서 에이전트 추가 스폰
+      const currentCount = agentManager.getAllAgents().length;
+      if (currentCount < agentTarget) {
+        for (let i = currentCount; i < agentTarget; i++) {
+          const randomRole = roles[Math.floor(Math.random() * roles.length)];
+          agentManager.createAgent({
+            id: `auto-agent-${Date.now()}-${i}`,
+            name: `Clone-${i}`,
+            role: randomRole,
+            homeDesk: { col: 5 + (i % 15), row: 5 + Math.floor(i / 15) },
+            speed: 50 + Math.random() * 40,
+            color: Math.floor(Math.random() * 0xFFFFFF)
+          });
+        }
+      }
+
+      // 2. 가짜 분해 작업 리스트 생성
+      const mockDecompositions = [];
+      const priorityLevels = [0, 1, 2, 3];
+      for (let i = 0; i < taskCount; i++) {
+        mockDecompositions.push({
+          agent: roles[Math.floor(Math.random() * roles.length)],
+          task: `자동 생성 부하 테스트용 더미 태스크 #${i + 1}`,
+          priority: priorityLevels[Math.floor(Math.random() * priorityLevels.length)],
+        });
+      }
+
+      // 3. Orchestrator에 우회 주입하여 시각적 작업 배분 유도
+      const taskService = (orchestrator as any).taskService;
+      if (taskService) {
+         const tasks = taskService.createTasksFromDecomposition(mockDecompositions);
+         (orchestrator as any).eventBus.emit(EventType.TasksParsed, { tasks, reasoning: "Visual Load Test Triggered" });
+         orchestrator.dispatchPendingTasks();
+      }
       
-      const report = testSuite.generateReport(result);
-      logSystem(report, 'success');
-      toastManager.showTestNotification('success', 'stress', result);
       ctx.updateTestDashboard();
-      return report;
+      return `테스트 시작: 화면에 ${agentTarget}명의 에이전트가 생성되어 ${taskCount}개의 태스크를 병렬로 처리하기 시작합니다.`;
     },
   });
 
