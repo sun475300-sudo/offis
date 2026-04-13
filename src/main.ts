@@ -109,6 +109,9 @@ export class PixelOfficeApp {
     this.debateManager = new DebateManager(this.eventBus);
     this.runnerManager = new RunnerManager(this.eventBus);
     this.gitHubService = new GitHubService();
+
+    // Start Orchestrator's automatic assignment loop
+    this.orchestrator.startDispatchLoop(2000);
   }
 
   private initRendering(): void {
@@ -238,8 +241,8 @@ export class PixelOfficeApp {
       if (this.collaborationSystem) this.collaborationSystem.update();
       this.camera.update(deltaTime);
       this.particleSystem.update(deltaTime);
-      this.speechBubbleRenderer.update(deltaTime);
-      this.taskProgressRenderer.update(deltaTime);
+      this.speechBubbleRenderer.update();
+      // taskProgressRenderer does not have an update method for ticker loop
 
       // Rendering
       const snaps = this.agentManager.getAllAgents().map(a => a.getSnapshot());
@@ -256,6 +259,28 @@ export class PixelOfficeApp {
           fps: Math.round(this.app.ticker.FPS)
         });
         this.hud.updateAgentPanel(snaps);
+
+        // Update Full Monitor
+        const runStats = this.runnerManager.getStats();
+        this.hud.updateMonitorPanel({
+          agents: snaps.length,
+          runners: runStats.activeRunners,
+          tasks: report.pending,
+          debates: this.debateManager.getAllSessions().filter(s => s.status === 'active').length,
+          tokens: this.debateManager.getTokenUsage(),
+          loops: runStats.runningLoops,
+          successRate: runStats.totalTests > 0 ? Math.round((runStats.completedLoops / (runStats.runningLoops + runStats.completedLoops || 1)) * 100) + '%' : '100%',
+          avgTime: '3.2s' // Mocked for now, can be calculated from RunnerManager
+        });
+
+        // Update Test Dashboard
+        const schedules = ['부하 테스트 (14:30)', '회귀 테스트 (15:00)']; // Mocked schedules
+        this.hud.updateTestDashboard({
+          total: runStats.totalTests,
+          successRate: runStats.totalTests > 0 ? '98%' : 'N/A', // Simplified
+          avgTime: '120ms',
+          schedules: schedules
+        });
       }
     });
   }

@@ -1,4 +1,4 @@
-﻿import {
+import {
   AgentConfig,
   AgentRole,
   AgentSnapshot,

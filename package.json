@@ -4,7 +4,7 @@
   "description": "Enterprise 2D Pixel Office Multi-Agent System Control Dashboard",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --force",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

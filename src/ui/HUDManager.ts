@@ -13,10 +13,44 @@ export class HUDManager {
     this.setElementText('stat-working', stats.working.toString());
     this.setElementText('stat-tasks', stats.tasks.toString());
     this.setElementText('stat-fps', stats.fps.toString());
-    
-    // Also update monitor panel
+  }
+
+  updateMonitorPanel(stats: {
+    agents: number;
+    runners: number;
+    tasks: number;
+    debates: number;
+    tokens: number;
+    loops: number;
+    successRate: string;
+    avgTime: string;
+  }): void {
     this.setElementText('monitor-agents', `${stats.agents}명 활성`);
+    this.setElementText('monitor-runners', `${stats.runners}대 대기`);
     this.setElementText('monitor-tasks', `${stats.tasks}건`);
+    this.setElementText('monitor-debates', `${stats.debates}건`);
+    this.setElementText('monitor-tokens', stats.tokens.toLocaleString());
+    
+    // CI/CD
+    this.setElementText('monitor-loops', `${stats.loops}건`);
+    this.setElementText('monitor-success', stats.successRate);
+    this.setElementText('monitor-avg-time', stats.avgTime);
+  }
+
+  updateTestDashboard(stats: { total: number; successRate: string; avgTime: string; schedules: string[] }): void {
+    this.setElementText('test-total-count', stats.total.toString());
+    this.setElementText('test-success-rate', stats.successRate);
+    this.setElementText('test-avg-time', stats.avgTime);
+
+    // Update schedules
+    const list = document.getElementById('test-schedule-list');
+    if (list) {
+      if (stats.schedules.length === 0) {
+        list.innerHTML = `<div class="test-schedule-item">예정된 테스트 없음</div>`;
+      } else {
+        list.innerHTML = stats.schedules.map(s => `<div class="test-schedule-item">${s}</div>`).join('');
+      }
+    }
   }
 
   updateAgentPanel(agents: any[]): void {
