@@ -525,7 +525,8 @@ function registerMetaSkillCommands(ctx: CLIContext) {
         // 데모: 현재 에이전트들로 샘플 세션 생성
         const agents = agentManager.getAllAgents().slice(0, 5);
         for (const agent of agents) {
-          const session = sessionManager.startSession(agent.id, agent.role, `${agent.role} 전담 태스크`);
+          const taskDesc = `${agent.role} 전담 태스크 수행`;
+          const session = sessionManager.startSession(agent.id, agent.role, taskDesc);
           sessionManager.addMemory(session.id, `${agent.name}(${agent.role}) 세션 초기화 완료`);
           sessionManager.addMemory(session.id, `하네스 로드: T=${getHarness(agent.role).temperature}, ctx=${getHarness(agent.role).contextStrategy}`);
           sessionManager.logToolCall(session.id, {
@@ -534,7 +535,15 @@ function registerMetaSkillCommands(ctx: CLIContext) {
             output: '초기화 성공',
             durationMs: Math.floor(Math.random() * 200 + 50),
           });
+
+          // ✅ NEW: Trigger actual agent work through Orchestrator
+          orchestrator.getTaskService().createTasksFromDecomposition([{
+            agent: agent.role,
+            task: `[Managed Session] ${taskDesc}`,
+            priority: TaskPriority.Normal
+          }]);
         }
+        orchestrator.dispatchPendingTasks();
         return `✅ ${agents.length}개의 데모 세션을 생성했습니다.\n→ /session 으로 세션 목록을 확인하세요.`;
       }
 

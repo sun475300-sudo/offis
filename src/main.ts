@@ -101,7 +101,7 @@ export class PixelOfficeApp {
     
     // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
-    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus);
+    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap);
     
     this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();

@@ -219,6 +219,47 @@ export class Tilemap implements ITilemap {
     return placed;
   }
 
+  /** Find the nearest walkable cell to a target (BFS) */
+  findNearestWalkable(target: GridCell, maxRadius: number = 3): GridCell {
+    if (this.isWalkable(target.col, target.row)) return target;
+
+    const queue: GridCell[] = [target];
+    const visited = new Set<string>();
+    visited.add(`${target.col},${target.row}`);
+
+    const directions = [
+      { col: 0, row: -1 }, { col: 0, row: 1 },
+      { col: -1, row: 0 }, { col: 1, row: 0 },
+      { col: -1, row: -1 }, { col: 1, row: -1 },
+      { col: -1, row: 1 }, { col: 1, row: 1 }
+    ];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      
+      // Manhattan distance check for radius
+      const dist = Math.abs(current.col - target.col) + Math.abs(current.row - target.row);
+      if (dist > maxRadius) continue;
+
+      for (const dir of directions) {
+        const next = { col: current.col + dir.col, row: current.row + dir.row };
+        const key = `${next.col},${next.row}`;
+        
+        if (next.col < 0 || next.col >= this.width || next.row < 0 || next.row >= this.height) continue;
+        if (visited.has(key)) continue;
+
+        if (this.isWalkable(next.col, next.row)) {
+          return next;
+        }
+
+        visited.add(key);
+        queue.push(next);
+      }
+    }
+
+    return target; // Fallback to original
+  }
+
   private wall(): TileData {
     return { type: TileType.Wall, walkable: false, occupantId: null, weight: Infinity };
   }

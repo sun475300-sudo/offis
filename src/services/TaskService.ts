@@ -1,4 +1,4 @@
-﻿import {
+import {
   AgentRole,
   EventType,
   GridCell,
@@ -27,7 +27,7 @@ export class TaskService {
     [AgentRole.DevOps, [{ col: 9, row: 11 }, { col: 11, row: 11 }]],
   ]);
 
-  constructor(private eventBus: IEventBus) {}
+  constructor(private eventBus: IEventBus, private tilemap?: ITilemap) {}
 
   /** Convert LLM decomposition output into TaskInfo objects */
   createTasksFromDecomposition(
@@ -39,7 +39,12 @@ export class TaskService {
     for (const decomp of decompositions) {
       const taskId = `task-${++this.taskIdCounter}-${Date.now()}`;
       const desks = this.roleDeskMap.get(decomp.agent) || [{ col: 10, row: 10 }];
-      const desk = desks[this.taskIdCounter % desks.length];
+      let desk = desks[this.taskIdCounter % desks.length];
+
+      // Fix: Ensure the target desk cell is actually walkable
+      if (this.tilemap) {
+        desk = this.tilemap.findNearestWalkable(desk);
+      }
 
       const task: TaskInfo = {
         id: taskId,

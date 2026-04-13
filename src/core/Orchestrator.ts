@@ -7,6 +7,7 @@ import {
 import { AgentManager } from '../agent/AgentManager';
 import { LLMService, LLMServiceConfig } from '../services/LLMService';
 import { TaskService } from '../services/TaskService';
+import { GitHubService, GitHubPullRequest } from '../services/GitHubService';
 
 /**
  * Central Orchestrator — the "brain" of the system.
@@ -23,10 +24,12 @@ export class Orchestrator {
   constructor(
     private agentManager: AgentManager,
     private eventBus: IEventBus,
+    private tilemap: ITilemap,
+    private gitHubService: GitHubService,
     llmConfig?: LLMServiceConfig,
   ) {
     this.llmService = new LLMService(llmConfig);
-    this.taskService = new TaskService(eventBus);
+    this.taskService = new TaskService(eventBus, tilemap);
     this.registerEventHandlers();
   }
 
@@ -47,6 +50,48 @@ export class Orchestrator {
 
     // Step 3: Dispatch tasks to agents
     this.dispatchPendingTasks();
+  }
+
+  /** Start a technical workflow derived from a GitHub Pull Request */
+  async handleGitHubWorkflow(owner: string, repo: string, prNumber: number): Promise<void> {
+    console.log(`[Orchestrator] Starting GitHub Workflow for ${owner}/${repo} PR #${prNumber}`);
+    
+    this.eventBus.emit(EventType.CommandReceived, { prompt: `/github ${owner}/${repo} ${prNumber}` });
+
+    try {
+      // 1. Fetch PR Data
+      const pr = await this.gitHubService.getPullRequest(owner, repo, prNumber);
+      const diff = await this.gitHubService.getPRDiff(owner, repo, prNumber);
+      
+      this.eventBus.emit(EventType.TasksParsed, { 
+        tasks: [], // Empty initially
+        reasoning: `GitHub PR #${prNumber} 분석 중... (Title: ${pr.title})` 
+      });
+
+      // 2. Technical Decomposition (Prompt with PR context)
+      const technicalPrompt = `
+        다음 GitHub Pull Request를 분석하고 리뷰 태스크를 생성해주세요.
+        PR 제목: ${pr.title}
+        작성자: ${pr.author}
+        내용: ${pr.body}
+        
+        코드 변경 요약 (Diff):
+        ${diff.substring(0, 3000)} // LLM context limit safeguard
+      `;
+
+      const llmResponse = await this.llmService.decomposeTasks(technicalPrompt);
+      
+      // 3. Create Tasks
+      const tasks = this.taskService.createTasksFromDecomposition(llmResponse.tasks);
+      this.eventBus.emit(EventType.TasksParsed, { tasks, reasoning: `GitHub PR 리뷰 자동 배정: ${llmResponse.reasoning}` });
+
+      // 4. Dispatch
+      this.dispatchPendingTasks();
+
+    } catch (error) {
+      console.error('[Orchestrator] GitHub Workflow failed:', error);
+      this.eventBus.emit(EventType.TaskFailed, { agentId: 'system', taskId: 'github-wf', reason: 'GitHub API 연동 실패' });
+    }
   }
 
   /** Try to assign all pending tasks to available agents */

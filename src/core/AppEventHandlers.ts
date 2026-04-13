@@ -77,4 +77,16 @@ export function setupAllEventHandlers(
       particle.emitPuff(agent.getSnapshot().position);
     }
   });
+
+  eventBus.on(EventType.TaskFailed, (event) => {
+    const { agentId, taskId, reason } = event.payload as { agentId: string; taskId: string; reason?: string };
+    const agent = agentManager.getAgent(agentId);
+    if (agent) {
+      hud.logError(`Task failed by ${agent.name}: ${reason || 'unknown error'}`);
+      toast.error('Task Failed', `${agent.name}: ${reason || 'unknown'}`);
+      if (taskId) {
+        taskProgress.removeProgress(taskId);
+      }
+    }
+  });
 }

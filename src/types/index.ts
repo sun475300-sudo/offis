@@ -251,4 +251,5 @@ export interface ITilemap {
   setOccupant(col: number, row: number, agentId: string | null): void;
   gridToWorld(cell: GridCell): Vec2;
   worldToGrid(pos: Vec2): GridCell;
+  findNearestWalkable(target: GridCell, maxRadius?: number): GridCell;
 }

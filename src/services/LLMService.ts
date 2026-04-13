@@ -361,12 +361,12 @@ export class LLMService {
     const tasks: LLMTaskDecomposition[] = [];
 
     // Frontend keywords
-    if (this.matchAny(prompt, ['웹사이트', 'ui', '프론트엔드', 'frontend', '페이지', '컴포넌트', 'react', 'css', '레이아웃'])) {
+    if (this.matchAny(prompt, ['웹사이트', 'ui', '프론트엔드', 'frontend', '페이지', '컴포넌트', 'react', 'css', '레이아웃', '디자인', '그려', '만들어'])) {
       tasks.push({ agent: AgentRole.Frontend, task: this.extractTask(prompt, 'frontend'), priority: TaskPriority.Normal });
     }
 
     // Backend keywords
-    if (this.matchAny(prompt, ['서버', 'api', '백엔드', 'backend', '데이터베이스', 'db', '인증', '로직'])) {
+    if (this.matchAny(prompt, ['서버', 'api', '백엔드', 'backend', '데이터베이스', 'db', '인증', '로직', '엔진', '데이터'])) {
       tasks.push({ agent: AgentRole.Backend, task: this.extractTask(prompt, 'backend'), priority: TaskPriority.Normal });
     }
 
@@ -376,12 +376,12 @@ export class LLMService {
     }
 
     // PM keywords
-    if (this.matchAny(prompt, ['기획', '문서', '스펙', '요구사항', '일정', 'pm', 'planning'])) {
+    if (this.matchAny(prompt, ['기획', '문서', '스펙', '요구사항', '일정', 'pm', 'planning', '보고서', '일정관리'])) {
       tasks.push({ agent: AgentRole.PM, task: this.extractTask(prompt, 'pm'), priority: TaskPriority.High });
     }
 
     // QA keywords
-    if (this.matchAny(prompt, ['테스트', 'qa', '검증', 'test', '버그', 'quality'])) {
+    if (this.matchAny(prompt, ['테스트', 'qa', '검증', 'test', '버그', 'quality', '확인', '검수'])) {
       tasks.push({ agent: AgentRole.QA, task: this.extractTask(prompt, 'qa'), priority: TaskPriority.Normal });
     }
 
