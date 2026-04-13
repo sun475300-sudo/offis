@@ -20,7 +20,11 @@ export function setupAllEventHandlers(
   
   eventBus.on(EventType.CommandReceived, (event) => {
     const { prompt } = event.payload as { prompt: string };
-    hud.logUser(prompt);
+    if (prompt.startsWith('/github')) {
+      hud.logGitHub(`Starting workflow: ${prompt}`);
+    } else {
+      hud.logUser(prompt);
+    }
   });
 
   eventBus.on(EventType.TasksParsed, (event) => {

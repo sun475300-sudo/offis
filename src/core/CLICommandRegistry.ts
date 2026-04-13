@@ -554,4 +554,32 @@ function registerMetaSkillCommands(ctx: CLIContext) {
       return sessionManager.getSummary();
     },
   });
+
+  // ── /github <owner/repo> <pr_number> — GitHub PR 분석 및 워크플로우 시작
+  cliEngine.registerCommand({
+    name: 'github',
+    aliases: ['gh', '깃헙'],
+    description: 'GitHub Pull Request 분석 및 리뷰 태스크 자동 생성',
+    usage: '/github <owner/repo> <pr_number>',
+    handler: async (args) => {
+      if (args.length < 2) {
+        return '❌ 사용법: /github <owner/repo> <pr_number>\n예: /github sun475300-sudo/offis 1';
+      }
+
+      const repoPath = args[0];
+      const prNumber = parseInt(args[1]);
+
+      const parts = repoPath.split('/');
+      if (parts.length !== 2 || isNaN(prNumber)) {
+        return '❌ 잘못된 명령 형식입니다. <owner/repo> 형식을 확인해주세요.';
+      }
+
+      const [owner, repo] = parts;
+      
+      // 비동기로 워크플로우 시작 (피드백은 바로 반환)
+      orchestrator.handleGitHubWorkflow(owner, repo, prNumber);
+      
+      return `📡 [GitHub Workflow] ${owner}/${repo} PR #${prNumber} 데이터를 가져오는 중입니다...\n에이전트들이 분석을 마치면 활동 피드에 작업이 표시됩니다.`;
+    },
+  });
 }

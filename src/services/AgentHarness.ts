@@ -13,6 +13,7 @@
  */
 
 import { AgentRole } from '../types';
+import { statePersistence } from './StatePersistence';
 
 /** 에이전트 하네스는 에이전트가 실행되는 환경 그 자체 */
 export interface AgentHarnessConfig {
@@ -396,7 +397,10 @@ export class ManagedAgentSessionManager {
   private sessionCounter = 0;
 
   static getInstance(): ManagedAgentSessionManager {
-    if (!this.instance) this.instance = new ManagedAgentSessionManager();
+    if (!this.instance) {
+      this.instance = new ManagedAgentSessionManager();
+      this.instance.loadFromPersistence();
+    }
     return this.instance;
   }
 
@@ -425,7 +429,27 @@ export class ManagedAgentSessionManager {
     };
 
     this.sessions.set(session.id, session);
+    this.saveToPersistence();
     return session;
+  }
+
+  private saveToPersistence(): void {
+    const data = Array.from(this.sessions.values());
+    statePersistence.save('session', 'managed-agents-all', { sessions: data });
+  }
+
+  private loadFromPersistence(): void {
+    const persisted = statePersistence.load('session', 'managed-agents-all');
+    if (persisted && persisted.data && Array.isArray(persisted.data.sessions)) {
+      const loadedSessions = persisted.data.sessions as ManagedAgentSession[];
+      for (const s of loadedSessions) {
+        this.sessions.set(s.id, s);
+        // Update counter to avoid ID collision
+        const num = parseInt(s.id.split('-')[1]);
+        if (!isNaN(num)) this.sessionCounter = Math.max(this.sessionCounter, num);
+      }
+      console.log(`[ManagedAgentSessionManager] 💾 Restored ${this.sessions.size} sessions from persistence`);
+    }
   }
 
   /** 에이전트의 활성 세션을 반환합니다 */
@@ -447,6 +471,7 @@ export class ManagedAgentSessionManager {
     s.lastActiveAt = Date.now();
     // 최대 50개 메모리 유지
     if (s.contextMemory.length > 50) s.contextMemory.shift();
+    this.saveToPersistence();
   }
 
   /** 도구 호출을 기록합니다 */
@@ -456,6 +481,7 @@ export class ManagedAgentSessionManager {
     s.toolCallLog.push({ ...record, timestamp: Date.now() });
     // 최대 20개 도구 호출 유지
     if (s.toolCallLog.length > 20) s.toolCallLog.shift();
+    this.saveToPersistence();
   }
 
   /** 세션을 완료 처리합니다 */

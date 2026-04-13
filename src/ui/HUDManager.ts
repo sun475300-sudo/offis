@@ -95,6 +95,10 @@ export class HUDManager {
     this.appendToCLIOutput(`[SYSTEM] ${message}`, type);
   }
 
+  logGitHub(message: string): void {
+    this.appendToCLIOutput(`🐙 [GitHub] ${message}`, 'success');
+  }
+
   logUser(message: string): void {
     this.appendToCLIOutput(`❯ ${message}`, 'user');
   }

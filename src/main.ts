@@ -100,8 +100,9 @@ export class PixelOfficeApp {
     this.pathfinder = new Pathfinder(this.tilemap);
     
     // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
+    this.gitHubService = new GitHubService();
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
-    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap);
+    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap, this.gitHubService);
     
     this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();
@@ -110,7 +111,6 @@ export class PixelOfficeApp {
     this.collaborationSystem = new CollaborationSystem(this.eventBus, this.agentManager, this.tilemap);
     this.debateManager = new DebateManager(this.eventBus);
     this.runnerManager = new RunnerManager(this.eventBus);
-    this.gitHubService = new GitHubService();
 
     // Start Orchestrator's automatic assignment loop
     this.orchestrator.startDispatchLoop(2000);
