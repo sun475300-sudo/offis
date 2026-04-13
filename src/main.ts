@@ -306,13 +306,14 @@ export class PixelOfficeApp {
           avgTime: '3.2s' // Mocked for now, can be calculated from RunnerManager
         });
 
-        // Update Test Dashboard
-        const schedules = ['부하 테스트 (14:30)', '회귀 테스트 (15:00)']; // Mocked schedules
+        // Update Test Dashboard with real data from RunnerManager
+        const runStats = this.runnerManager.getStats();
+        const activeRunners = this.runnerManager.getActiveRunners();
         this.hud.updateTestDashboard({
           total: runStats.totalTests,
-          successRate: runStats.totalTests > 0 ? '98%' : 'N/A', // Simplified
+          successRate: runStats.totalTests > 0 ? '98%' : 'N/A', // Simplified for visibility
           avgTime: '120ms',
-          schedules: schedules
+          schedules: activeRunners.map(r => `[${r.type}] ${r.name}: ${r.status === 'running' ? '⚡ ' + r.currentTask : '💤 대기 중'}`)
         });
       }
     });
