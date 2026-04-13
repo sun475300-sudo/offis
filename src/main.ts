@@ -118,22 +118,25 @@ export class PixelOfficeApp {
 
   private initRendering(): void {
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+    const gameArea = document.getElementById('game-area') as HTMLElement;
+    const w = gameArea?.clientWidth || window.innerWidth - 520;
+    const h = gameArea?.clientHeight || window.innerHeight - 100;
     
     this.app = new PIXI.Application({
       view: canvas,
-      width: window.innerWidth,
-      height: window.innerHeight - 150,
-      backgroundColor: 0x05070a, // Match --bg-dark
+      width: w,
+      height: h,
+      backgroundColor: 0x05070a,
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      backgroundAlpha: 0, // Allow CSS background to show through if needed
+      backgroundAlpha: 0,
     });
 
     this.rootContainer = new PIXI.Container();
     this.app.stage.addChild(this.rootContainer);
 
-    this.camera = new CameraController(this.rootContainer, window.innerWidth, window.innerHeight - 150);
+    this.camera = new CameraController(this.rootContainer, w, h);
     this.tilemapRenderer = new TilemapRenderer(this.rootContainer);
     this.agentRenderer = new AgentRenderer(this.rootContainer);
     this.particleSystem = new ParticleSystem(this.rootContainer);
@@ -152,13 +155,26 @@ export class PixelOfficeApp {
   private initUI(): void {
     this.hud = new HUDManager();
     
-    // Setup resize & zoom
-    window.addEventListener('resize', () => {
-      this.app.renderer.resize(window.innerWidth, window.innerHeight - 150);
-      this.camera.updateScreenSize(window.innerWidth, window.innerHeight - 150);
+    // Resize handler for 3-column layout
+    const gameArea = document.getElementById('game-area');
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          this.app.renderer.resize(width, height);
+          this.camera.updateScreenSize(width, height);
+        }
+      }
     });
-
-    // Integrated zoom/pan via camera controller is internal to that class
+    if (gameArea) resizeObserver.observe(gameArea);
+    
+    window.addEventListener('resize', () => {
+      // fallback
+      const w = gameArea?.clientWidth || window.innerWidth - 520;
+      const h = gameArea?.clientHeight || window.innerHeight - 100;
+      this.app.renderer.resize(w, h);
+      this.camera.updateScreenSize(w, h);
+    });
   }
 
   private setupIntegration(): void {

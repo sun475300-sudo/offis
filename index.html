@@ -12,7 +12,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Header / Status Panel -->
+    <!-- ══════════ HEADER ══════════ -->
     <header class="header">
       <div class="logo">
         <span class="logo-icon">🏢</span>
@@ -48,208 +48,253 @@
       </div>
     </header>
 
-    <!-- Main Game Area -->
-    <main class="game-container">
-      <canvas id="game-canvas"></canvas>
-      
-      <!-- Agent Status Overlay -->
-      <div class="agent-status-panel" id="agent-panel">
-        <div class="panel-header">
-          <span>📋 Agent Status</span>
-          <button class="btn-minimize" id="btn-minimize-panel">−</button>
-        </div>
-        <div class="agent-list" id="agent-list">
-          <!-- Agent items will be populated dynamically -->
-        </div>
-      </div>
+    <!-- ══════════ MAIN WORKSPACE ══════════ -->
+    <div class="workspace">
 
-      <!-- History Panel -->
-      <div class="history-panel" id="history-panel">
-        <div class="panel-header">
-          <span>📂 검수 기록</span>
-          <button class="btn-minimize" id="btn-minimize-history">−</button>
+      <!-- ── LEFT SIDEBAR ── -->
+      <aside class="sidebar sidebar-left" id="sidebar-left">
+        <!-- Monitor Panel -->
+        <div class="sidebar-section" id="monitor-panel">
+          <div class="section-header">
+            <span>🖥️ 관제 모니터</span>
+            <button class="btn-minimize" id="btn-minimize-monitor">−</button>
+          </div>
+          <div class="monitor-content" id="monitor-content">
+            <div class="monitor-section">
+              <div class="monitor-label">시스템 상태</div>
+              <div class="monitor-row"><span>에이전트:</span><span id="monitor-agents">0명</span></div>
+              <div class="monitor-row"><span>러너:</span><span id="monitor-runners">0대</span></div>
+              <div class="monitor-row"><span>작업 큐:</span><span id="monitor-tasks">0건</span></div>
+            </div>
+            <div class="monitor-section">
+              <div class="monitor-label">토론 상태</div>
+              <div class="monitor-row"><span>활성 세션:</span><span id="monitor-debates">0건</span></div>
+              <div class="monitor-row"><span>토큰 사용량:</span><span id="monitor-tokens">0</span></div>
+              <div class="monitor-row"><span>턴 수:</span><span id="monitor-turns">0/3</span></div>
+            </div>
+            <div class="monitor-section">
+              <div class="monitor-label">CI/CD 루프</div>
+              <div class="monitor-row"><span>실행 중:</span><span id="monitor-loops">0건</span></div>
+              <div class="monitor-row"><span>성공률:</span><span id="monitor-success">100%</span></div>
+              <div class="monitor-row"><span>평균 소요:</span><span id="monitor-avg-time">0s</span></div>
+            </div>
+          </div>
         </div>
-        <div class="history-list" id="history-list">
-          <!-- History items will be populated dynamically -->
-        </div>
-      </div>
 
-      <!-- Zoom Controls -->
-      <div class="zoom-controls">
-        <button class="zoom-btn" id="btn-zoom-in" title="Zoom In">+</button>
-        <button class="zoom-btn" id="btn-zoom-out" title="Zoom Out">−</button>
-        <button class="zoom-btn" id="btn-zoom-reset" title="Reset View">⟲</button>
-      </div>
+        <!-- Agent Chat Panel -->
+        <div class="sidebar-section chat-section" id="chat-panel">
+          <div class="section-header">
+            <span>💬 Agent Chat</span>
+            <button class="btn-minimize" id="btn-minimize-chat">−</button>
+          </div>
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-empty">No messages yet</div>
+          </div>
+          <div class="chat-input-wrapper">
+            <input type="text" id="chat-input" class="chat-input" placeholder="에이전트에게 메시지 전송...">
+            <button class="chat-send-btn" id="btn-send-chat">▶</button>
+          </div>
+        </div>
+      </aside>
 
-      <!-- Monitoring Dashboard -->
-      <div class="monitor-panel" id="monitor-panel">
-        <div class="panel-header">
-          <span>🖥️ 관제 모니터</span>
-          <button class="btn-minimize" id="btn-minimize-monitor">−</button>
-        </div>
-        <div class="monitor-content">
-          <div class="monitor-section">
-            <div class="monitor-label">시스템 상태</div>
-            <div class="monitor-row">
-              <span>에이전트:</span>
-              <span id="monitor-agents">32명 활성</span>
-            </div>
-            <div class="monitor-row">
-              <span>러너:</span>
-              <span id="monitor-runners">4대 대기</span>
-            </div>
-            <div class="monitor-row">
-              <span>작업 큐:</span>
-              <span id="monitor-tasks">0건</span>
-            </div>
-          </div>
-          <div class="monitor-section">
-            <div class="monitor-label">토론 상태</div>
-            <div class="monitor-row">
-              <span>활성 세션:</span>
-              <span id="monitor-debates">0건</span>
-            </div>
-            <div class="monitor-row">
-              <span>토큰 사용량:</span>
-              <span id="monitor-tokens">0</span>
-            </div>
-            <div class="monitor-row">
-              <span>턴 수:</span>
-              <span id="monitor-turns">0/3</span>
-            </div>
-          </div>
-          <div class="monitor-section">
-            <div class="monitor-label">CI/CD 루프</div>
-            <div class="monitor-row">
-              <span>실행 중:</span>
-              <span id="monitor-loops">0건</span>
-            </div>
-            <div class="monitor-row">
-              <span>성공률:</span>
-              <span id="monitor-success">100%</span>
-            </div>
-            <div class="monitor-row">
-              <span>평균 소요:</span>
-              <span id="monitor-avg-time">0s</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- ── CENTER CANVAS ── -->
+      <main class="game-container" id="game-area">
+        <canvas id="game-canvas"></canvas>
 
-      <!-- Test Dashboard Panel -->
-      <div class="test-dashboard-panel" id="test-dashboard-panel">
-        <div class="panel-header">
-          <span>📊 테스트 대시보드</span>
-          <button class="btn-minimize" id="btn-minimize-test-dashboard">−</button>
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="btn-zoom-in" title="Zoom In">+</button>
+          <button class="zoom-btn" id="btn-zoom-out" title="Zoom Out">−</button>
+          <button class="zoom-btn" id="btn-zoom-reset" title="Reset View">⟲</button>
         </div>
-        <div class="test-dashboard-content">
-          <div class="test-stats-row">
-            <div class="test-stat">
-              <span class="test-stat-label">테스트 수</span>
-              <span class="test-stat-value" id="test-total-count">0</span>
-            </div>
-            <div class="test-stat">
-              <span class="test-stat-label">성공률</span>
-              <span class="test-stat-value" id="test-success-rate">0%</span>
-            </div>
-            <div class="test-stat">
-              <span class="test-stat-label">평균 시간</span>
-              <span class="test-stat-value" id="test-avg-time">0ms</span>
-            </div>
-          </div>
-          <div class="test-chart-container">
-            <canvas id="test-result-chart" width="280" height="120"></canvas>
-          </div>
-          <div class="test-schedule-section">
-            <div class="test-schedule-header">🔄 스케줄</div>
-            <div class="test-schedule-list" id="test-schedule-list">
-              <div class="test-schedule-empty">예약된 테스트 없음</div>
-            </div>
-          </div>
-          <div class="test-scenarios-section">
-            <div class="test-scenarios-header">🧪 시나리오</div>
-            <div class="test-scenario-list" id="test-scenario-list">
-              <div class="test-scenario-item" data-scenario="stress">
-                <span class="scenario-name">부하 테스트</span>
-                <span class="scenario-desc">에이전트 동시 작업</span>
+
+        <!-- Keyboard Shortcuts Hint -->
+        <div class="shortcuts-hint">
+          <span>WASD/Arrow: Pan</span>
+          <span>Scroll: Zoom</span>
+          <span>Drag: Move</span>
+        </div>
+      </main>
+
+      <!-- ── RIGHT SIDEBAR ── -->
+      <aside class="sidebar sidebar-right" id="sidebar-right">
+        <!-- Tab Navigation -->
+        <div class="sidebar-tabs">
+          <button class="tab-btn active" data-tab="activity">📋 활동</button>
+          <button class="tab-btn" data-tab="agents">👥 팀</button>
+          <button class="tab-btn" data-tab="test">🧪 테스트</button>
+          <button class="tab-btn" data-tab="meeting">🤝 회의</button>
+        </div>
+
+        <!-- Tab: Activity Feed -->
+        <div class="tab-content active" id="tab-activity">
+          <div class="tab-scroll">
+            <!-- Quick Stats Row -->
+            <div class="quick-stats-row">
+              <div class="quick-stat">
+                <span id="test-success-rate" class="qs-value accent-green">N/A</span>
+                <span class="qs-label">성공률</span>
               </div>
-              <div class="test-scenario-item" data-scenario="load">
-                <span class="scenario-name">부하 생성</span>
-                <span class="scenario-desc">대량 에이전트 스폰</span>
+              <div class="quick-stat">
+                <span id="test-avg-time" class="qs-value accent-blue">120ms</span>
+                <span class="qs-label">평균시간</span>
               </div>
-              <div class="test-scenario-item" data-scenario="debate">
-                <span class="scenario-name">토론 테스트</span>
-                <span class="scenario-desc">다자간 토론</span>
-              </div>
-              <div class="test-scenario-item" data-scenario="cicd">
-                <span class="scenario-name">CI/CD 루프</span>
-                <span class="scenario-desc">피드백 루프</span>
-              </div>
-              <div class="test-scenario-item" data-scenario="meeting">
-                <span class="scenario-name">회의 협업</span>
-                <span class="scenario-desc">팀 협업 시뮬레이션</span>
+              <div class="quick-stat">
+                <span id="test-total-count" class="qs-value accent-orange">0</span>
+                <span class="qs-label">총 테스트</span>
               </div>
             </div>
-          </div>
-          <div class="test-chart-types">
-            <button class="chart-type-btn active" data-chart="bar">📊</button>
-            <button class="chart-type-btn" data-chart="line">📈</button>
-            <button class="chart-type-btn" data-chart="pie">🥧</button>
-          </div>
-        </div>
-      </div>
 
-      <!-- Chat Panel -->
-      <div class="chat-panel" id="chat-panel">
-        <div class="panel-header">
-          <span>💬 Agent Chat</span>
-          <button class="btn-minimize" id="btn-minimize-chat">−</button>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-          <div class="chat-empty">No messages yet</div>
-        </div>
-        <div class="chat-input-wrapper">
-          <input type="text" id="chat-input" class="chat-input" placeholder="Send message to agents...">
-          <button class="chat-send-btn" id="btn-send-chat">▶</button>
-        </div>
-      </div>
+            <!-- Schedule -->
+            <div class="right-section">
+              <div class="right-section-title">🔄 스케줄</div>
+              <div id="test-schedule-list">
+                <div class="test-schedule-item">예약된 테스트 없음</div>
+              </div>
+            </div>
 
-      <!-- Keyboard Shortcuts Hint -->
-      <div class="shortcuts-hint">
-        <span>WASD/Arrow: Pan</span>
-        <span>Scroll: Zoom</span>
-        <span>Drag: Move</span>
-      </div>
+            <!-- Scenarios -->
+            <div class="right-section">
+              <div class="right-section-title">🧪 시나리오</div>
+              <div id="test-scenario-list">
+                <div class="test-scenario-item clickable" data-scenario="stress">
+                  <span class="scenario-icon">⚡</span>
+                  <div>
+                    <div class="scenario-name">부하 테스트</div>
+                    <div class="scenario-desc">에이전트 동시 작업</div>
+                  </div>
+                </div>
+                <div class="test-scenario-item clickable" data-scenario="load">
+                  <span class="scenario-icon">🚀</span>
+                  <div>
+                    <div class="scenario-name">부하 생성</div>
+                    <div class="scenario-desc">대량 에이전트 스폰</div>
+                  </div>
+                </div>
+                <div class="test-scenario-item clickable" data-scenario="debate">
+                  <span class="scenario-icon">💬</span>
+                  <div>
+                    <div class="scenario-name">토론 테스트</div>
+                    <div class="scenario-desc">다자간 토론</div>
+                  </div>
+                </div>
+                <div class="test-scenario-item clickable" data-scenario="cicd">
+                  <span class="scenario-icon">⚙️</span>
+                  <div>
+                    <div class="scenario-name">CI/CD 루프</div>
+                    <div class="scenario-desc">피드백 루프</div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-      <!-- Repository Editor Panel -->
-      <div class="repo-editor-panel" id="repo-editor-panel">
-        <div class="repo-header">
-          <span class="repo-title" id="repo-title">📁 Attached Repository</span>
-          <div class="repo-actions">
-            <button class="repo-btn" id="btn-save-github" title="Save to GitHub">💾</button>
-            <button class="repo-btn" id="btn-download" title="Download">⬇️</button>
-            <button class="repo-btn" id="btn-refresh-repo" title="Refresh">🔄</button>
-            <button class="repo-btn" id="btn-close-repo" title="Close">✕</button>
-          </div>
-        </div>
-        <div class="repo-token-row">
-          <input type="password" id="github-token" class="github-token-input" placeholder="GitHub Token (ghp_...) - For saving to GitHub">
-        </div>
-        <div class="repo-content">
-          <div class="file-tree" id="file-tree">
-            <div class="file-tree-empty">No repository attached</div>
-          </div>
-          <div class="code-editor">
-            <div class="editor-tabs" id="editor-tabs"></div>
-            <div class="editor-content">
-              <textarea class="code-textarea" id="code-textarea" placeholder="파일을 선택하세요..."></textarea>
+            <!-- Review History -->
+            <div class="right-section">
+              <div class="right-section-title">📂 검수 기록</div>
+              <div class="history-list" id="history-list"></div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
 
-    <!-- CLI Input Area -->
+        <!-- Tab: Team / Agents -->
+        <div class="tab-content" id="tab-agents">
+          <div class="tab-scroll">
+            <div class="agent-list" id="agent-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Test Dashboard -->
+        <div class="tab-content" id="tab-test">
+          <div class="tab-scroll">
+            <div class="right-section">
+              <div class="right-section-title">📊 테스트 결과</div>
+              <div class="test-chart-container">
+                <canvas id="test-result-chart" width="260" height="120"></canvas>
+              </div>
+            </div>
+            <div class="right-section">
+              <div class="right-section-title">⚡ 빠른 실행</div>
+              <div class="quick-actions">
+                <button class="quick-action-btn" onclick="document.getElementById('cli-input').value='/test 10 20'; document.getElementById('btn-submit').click()">
+                  <span>🔥</span> 소규모 테스트 (10명)
+                </button>
+                <button class="quick-action-btn" onclick="document.getElementById('cli-input').value='/test 30 50'; document.getElementById('btn-submit').click()">
+                  <span>💥</span> 대규모 테스트 (30명)
+                </button>
+                <button class="quick-action-btn" onclick="document.getElementById('cli-input').value='/meeting standup'; document.getElementById('btn-submit').click()">
+                  <span>🤝</span> 스탠드업 회의 소집
+                </button>
+                <button class="quick-action-btn" onclick="document.getElementById('cli-input').value='/review'; document.getElementById('btn-submit').click()">
+                  <span>🔍</span> 코드 리뷰 시작
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Meeting Room Control -->
+        <div class="tab-content" id="tab-meeting">
+          <div class="tab-scroll">
+            <div class="right-section">
+              <div class="right-section-title">🤝 회의 소집</div>
+              <div class="meeting-type-grid">
+                <button class="meeting-type-btn" onclick="document.getElementById('cli-input').value='/meeting standup'; document.getElementById('btn-submit').click()">
+                  <span class="meeting-icon">☀️</span>
+                  <span>스탠드업</span>
+                </button>
+                <button class="meeting-type-btn" onclick="document.getElementById('cli-input').value='/meeting review'; document.getElementById('btn-submit').click()">
+                  <span class="meeting-icon">🔍</span>
+                  <span>코드리뷰</span>
+                </button>
+                <button class="meeting-type-btn" onclick="document.getElementById('cli-input').value='/meeting planning'; document.getElementById('btn-submit').click()">
+                  <span class="meeting-icon">📋</span>
+                  <span>플래닝</span>
+                </button>
+                <button class="meeting-type-btn" onclick="document.getElementById('cli-input').value='/meeting video'; document.getElementById('btn-submit').click()">
+                  <span class="meeting-icon">📹</span>
+                  <span>화상회의</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="right-section">
+              <div class="right-section-title">👥 페어 프로그래밍</div>
+              <div class="pair-form">
+                <select class="pair-select" id="pair-driver">
+                  <option value="frontend">프론트엔드 (드라이버)</option>
+                  <option value="backend">백엔드 (드라이버)</option>
+                  <option value="architect">아키텍트 (드라이버)</option>
+                </select>
+                <select class="pair-select" id="pair-navigator">
+                  <option value="backend">백엔드 (내비게이터)</option>
+                  <option value="qa">QA (내비게이터)</option>
+                  <option value="designer">디자이너 (내비게이터)</option>
+                </select>
+                <button class="pair-start-btn" onclick="
+                  const d = document.getElementById('pair-driver').value;
+                  const n = document.getElementById('pair-navigator').value;
+                  document.getElementById('cli-input').value = '/pair ' + d + ' ' + n;
+                  document.getElementById('btn-submit').click();
+                ">페어 시작 ▶</button>
+              </div>
+            </div>
+
+            <div class="right-section">
+              <div class="right-section-title">📝 업무 요청</div>
+              <div class="task-request-form">
+                <textarea class="task-textarea" id="task-request-text" placeholder="에이전트에게 업무를 요청하세요&#10;예: 프론트엔드 로그인 UI 작업해줘"></textarea>
+                <button class="task-request-btn" onclick="
+                  const t = document.getElementById('task-request-text').value.trim();
+                  if(t) { document.getElementById('cli-input').value = t; document.getElementById('btn-submit').click(); document.getElementById('task-request-text').value=''; }
+                ">업무 배정 ▶</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ══════════ CLI FOOTER ══════════ -->
     <footer class="cli-container">
       <div class="cli-prompt">
         <span class="prompt-symbol">❯</span>
@@ -270,27 +315,11 @@
         >
         <button class="btn-submit" id="btn-submit">▶</button>
       </div>
-      <!-- Attached files display -->
       <div class="attached-files" id="attached-files"></div>
-      <div class="cli-output" id="cli-output">
-        <!-- Command history will appear here -->
-      </div>
-      <!-- Hidden file input -->
+      <div class="cli-output" id="cli-output"></div>
       <input type="file" id="file-input" multiple webkitdirectory style="display: none;">
     </footer>
   </div>
-
-  <!-- Templates -->
-  <template id="template-agent-item">
-    <div class="agent-item">
-      <div class="agent-avatar"></div>
-      <div class="agent-info">
-        <div class="agent-name"></div>
-        <div class="agent-role"></div>
-      </div>
-      <div class="agent-state"></div>
-    </div>
-  </template>
 
   <!-- Agent Context Menu -->
   <div class="agent-context-menu" id="agent-context-menu">
@@ -324,7 +353,6 @@
       <div class="shortcut-group">
         <div class="shortcut-group-title">패널</div>
         <div class="shortcut-row"><span class="desc">통계 토글</span><span class="key">S</span></div>
-        <div class="shortcut-row"><span class="desc">성능 토글</span><span class="key">P</span></div>
         <div class="shortcut-row"><span class="desc">CLI 포커스</span><span class="key">/</span></div>
         <div class="shortcut-row"><span class="desc">단축키 표시</span><span class="key">?</span></div>
       </div>
@@ -332,5 +360,17 @@
   </div>
 
   <script type="module" src="/src/main.ts"></script>
+  <script>
+    // Tab switching logic
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + tab)?.classList.add('active');
+      });
+    });
+  </script>
 </body>
 </html>
