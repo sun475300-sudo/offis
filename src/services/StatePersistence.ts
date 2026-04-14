@@ -192,17 +192,23 @@ export class StatePersistence {
       const data = localStorage.getItem('offis-state');
       if (data) {
         const parsed = JSON.parse(data);
-        if (parsed.states) {
+        
+        // Precise Error Check: Validate structure before applying
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.states)) {
           for (const state of parsed.states) {
-            this.storage.set(state.id, state);
+            if (state.id && state.type && state.data) {
+              this.storage.set(state.id, state);
+            }
           }
         }
-        if (parsed.snapshots) {
-          this.snapshots = parsed.snapshots;
+        
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.snapshots)) {
+          this.snapshots = parsed.snapshots.filter((s: any) => s.id && Array.isArray(s.states));
         }
       }
     } catch (e) {
-      console.warn('Failed to load state from localStorage:', e);
+      console.warn('[StatePersistence] Failed to load or validate state — resetting:', e);
+      this.clear(); // Reset to prevent persistent crashes
     }
   }
 

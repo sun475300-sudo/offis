@@ -37,6 +37,11 @@ export class Agent {
   private moveTarget: Vec2 | null = null;
   private avoidanceOffset: Vec2 = { x: 0, y: 0 };
 
+  // Stuck Detection
+  private lastPos: Vec2 = { x: 0, y: 0 };
+  private stuckTicks: number = 0;
+  private readonly STUCK_THRESHOLD = 5; // Re-path after 5 ticks of no progress
+
   // Bug 6 fix: provider for other agents' occupied cells
   private occupiedCellsProvider: (() => GridCell[]) | null = null;
 
@@ -156,6 +161,7 @@ export class Agent {
 
     // Process movement
     if (this.state === AgentState.Moving || this.state === AgentState.Returning) {
+      this.checkStuckStatus();
       this.processMovement(deltaTime);
     }
 
@@ -237,14 +243,22 @@ export class Agent {
       taskId: this.currentTask?.id,
     });
 
-    // Start returning home
-    const result = this.pathfinder.findPath(this.gridCell, this.homeDesk);
+    // Start returning home with dynamic avoidance
+    const obstacles = this.getOccupiedCells();
+    const result = this.pathfinder.findPath(this.gridCell, this.homeDesk, obstacles);
     if (result.found) {
       this.path = result.path.slice(1);
       this.setState(AgentState.Returning);
     } else {
-      this.setState(AgentState.Idle);
-      this.completeTask();
+      // Fallback: simple path if blocked
+      const fallback = this.pathfinder.findPath(this.gridCell, this.homeDesk);
+      if (fallback.found) {
+        this.path = fallback.path.slice(1);
+        this.setState(AgentState.Returning);
+      } else {
+        this.setState(AgentState.Idle);
+        this.completeTask();
+      }
     }
   }
 
@@ -297,5 +311,29 @@ export class Agent {
   private getOccupiedCells(): GridCell[] {
     // Bug 6 fix: delegate to the provider injected by AgentManager
     return this.occupiedCellsProvider ? this.occupiedCellsProvider() : [];
+  }
+
+  private checkStuckStatus(): void {
+    const dist = Math.sqrt(
+      Math.pow(this.position.x - this.lastPos.x, 2) + 
+      Math.pow(this.position.y - this.lastPos.y, 2)
+    );
+
+    if (dist < 0.1) {
+      this.stuckTicks++;
+    } else {
+      this.stuckTicks = 0;
+      this.lastPos = { ...this.position };
+    }
+
+    if (this.stuckTicks > this.STUCK_THRESHOLD && this.currentTask) {
+      console.log(`[Agent ${this.name}] Stuck detected - forcing path recalculation`);
+      const obstacles = this.getOccupiedCells();
+      const result = this.pathfinder.findPath(this.gridCell, this.currentTask.targetDesk, obstacles);
+      if (result.found) {
+        this.path = result.path.slice(1);
+      }
+      this.stuckTicks = 0;
+    }
   }
 }
