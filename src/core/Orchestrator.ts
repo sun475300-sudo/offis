@@ -8,6 +8,7 @@ import { AgentManager } from '../agent/AgentManager';
 import { LLMService, LLMServiceConfig } from '../services/LLMService';
 import { TaskService } from '../services/TaskService';
 import { GitHubService, GitHubPullRequest } from '../services/GitHubService';
+import { DebateManager } from '../debate/DebateManager';
 
 /**
  * Central Orchestrator — the "brain" of the system.
@@ -26,6 +27,7 @@ export class Orchestrator {
     private eventBus: IEventBus,
     private tilemap: ITilemap,
     private gitHubService: GitHubService,
+    private debateManager: DebateManager,
     llmConfig?: LLMServiceConfig,
   ) {
     this.llmService = new LLMService(llmConfig);
@@ -87,6 +89,10 @@ export class Orchestrator {
 
       // 4. Dispatch
       this.dispatchPendingTasks();
+
+      // 5. Trigger Technical Debate (Visualization handled by main/HUD)
+      const session = await this.debateManager.startDebate(diff, `PR #${prNumber}: ${pr.title}`);
+      this.eventBus.emit(EventType.TechnicalDebateTriggered, { sessionId: session.id });
 
     } catch (error) {
       console.error('[Orchestrator] GitHub Workflow failed:', error);

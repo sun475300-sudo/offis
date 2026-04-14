@@ -15,7 +15,8 @@ export function setupAllEventHandlers(
   toast: ToastManager,
   chat: ChatSystem,
   particle: ParticleSystem,
-  taskProgress: TaskProgressRenderer
+  taskProgress: TaskProgressRenderer,
+  runDebateWithVisualization?: (sessionId: string) => Promise<void>
 ): void {
   
   eventBus.on(EventType.CommandReceived, (event) => {
@@ -53,6 +54,18 @@ export function setupAllEventHandlers(
     const agent = agentManager.getAgent(agentId);
     if (agent && newState === AgentState.Working) {
       chat.sendMessage(agentId, agent.name, agent.role, '작업 시작합니다!');
+    }
+  });
+
+  eventBus.on(EventType.AgentTalked, (event) => {
+    const { message } = event.payload as { message: string };
+    hud.logGitHub(`에이전트 발언: ${message}`);
+  });
+
+  eventBus.on(EventType.TechnicalDebateTriggered, (event) => {
+    const { sessionId } = event.payload as { sessionId: string };
+    if (runDebateWithVisualization) {
+      runDebateWithVisualization(sessionId);
     }
   });
 

@@ -102,7 +102,7 @@ export class PixelOfficeApp {
     // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
     this.gitHubService = new GitHubService();
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
-    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap, this.gitHubService);
+    this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap, this.gitHubService, this.debateManager);
     
     this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();
@@ -191,7 +191,8 @@ export class PixelOfficeApp {
       this.toastManager, 
       this.chatSystem,
       this.particleSystem,
-      this.taskProgressRenderer
+      this.taskProgressRenderer,
+      (id) => this.runDebateWithVisualization(id)
     );
 
     // 3. CLI Commands
@@ -214,8 +215,11 @@ export class PixelOfficeApp {
       logSystem: (msg, type) => this.hud.logSystem(msg, type),
       logUser: (msg) => this.hud.logUser(msg),
       logError: (msg) => this.hud.logError(msg),
-      runDebateWithVisualization: async (id) => {}, // Logic moved to DebateManager ideally
-      startCodeReview: async (code, project) => {},
+      runDebateWithVisualization: async (id) => this.runDebateWithVisualization(id),
+      startCodeReview: async (code, project) => {
+        const session = await this.debateManager.startDebate(code, project);
+        await this.runDebateWithVisualization(session.id);
+      },
       updateTestDashboard: () => {
         const runStats = this.runnerManager.getStats();
         this.hud.updateTestDashboard({
@@ -317,6 +321,70 @@ export class PixelOfficeApp {
         });
       }
     });
+  }
+
+  private async runDebateWithVisualization(sessionId: string): Promise<void> {
+    const session = this.debateManager.getSession(sessionId);
+    if (!session) return;
+
+    this.hud.logSystem(`[Debate] '${session.projectName}' 기술 검토 토론을 시작합니다.`, 'info');
+
+    // 1. Find Participants
+    const participants = this.debateManager.getParticipants();
+    const agents = participants.map(p => {
+      const agent = this.agentManager.getAllAgents().find(a => a.role === p.role);
+      return { p, agent };
+    }).filter(pair => !!pair.agent);
+
+    if (agents.length === 0) {
+      this.hud.logError('토론에 참여할 수 있는 에이전트가 없습니다.');
+      return;
+    }
+
+    // 2. Move to Conference Room
+    const confPos = [
+      { col: 13, row: 4 },
+      { col: 14, row: 4 },
+      { col: 15, row: 4 },
+    ];
+
+    agents.forEach((pair, idx) => {
+      const target = confPos[idx] || confPos[0];
+      pair.agent!.assignTask({
+        id: `debate-move-${Date.now()}`,
+        description: '회의실 이동 (기술 토론)',
+        requiredRole: pair.agent!.role,
+        targetDesk: target,
+        priority: TaskPriority.High,
+        estimatedDuration: 1,
+        status: TaskStatus.Pending
+      });
+    });
+
+    // Wait for arrival (wait 4 seconds for walk time)
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
+    // 3. Execution (Turn by Turn)
+    const runSession = await this.debateManager.runDebate(sessionId);
+    
+    for (const turn of runSession.turns) {
+      const speakerPair = agents.find(pair => pair.agent!.role === turn.speakerRole);
+      if (speakerPair) {
+        // Trigger Speech Bubble
+        this.eventBus.emit(EventType.AgentTalked, {
+          agentId: speakerPair.agent!.id,
+          message: turn.message
+        });
+        
+        // Log to HUD
+        this.hud.logSystem(`${speakerPair.p.name}: ${turn.message}`, 'info');
+        
+        // Delay between turns for readability
+        await new Promise(resolve => setTimeout(resolve, 3500));
+      }
+    }
+
+    this.hud.logSystem(`[Debate] 토론 종료. 결론: ${runSession.finalConclusion}`, 'success');
   }
 }
 

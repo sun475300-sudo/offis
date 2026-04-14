@@ -114,6 +114,7 @@ export enum EventType {
   TaskAssigned = 'task:assigned',
   TaskCompleted = 'task:completed',
   TaskFailed = 'task:failed',
+  TechnicalDebateTriggered = 'tasks:debateTriggered',
 
   // Agent events
   AgentStateChanged = 'agent:stateChanged',
@@ -121,6 +122,7 @@ export enum EventType {
   AgentStartedWork = 'agent:startedWork',
   AgentFinishedWork = 'agent:finishedWork',
   AgentPathBlocked = 'agent:pathBlocked',
+  AgentTalked = 'agent:talked',
 
   // System events
   TickUpdate = 'system:tick',
