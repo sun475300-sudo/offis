@@ -311,7 +311,6 @@ export class PixelOfficeApp {
         });
 
         // Update Test Dashboard with real data from RunnerManager
-        const runStats = this.runnerManager.getStats();
         const activeRunners = this.runnerManager.getActiveRunners();
         this.hud.updateTestDashboard({
           total: runStats.totalTests,

@@ -103,6 +103,7 @@ export interface TaskInfo {
   progress: number;          // 0..1
   parentTaskId: string | null;
   createdAt: number;
+  lastPulse?: number; // Last time the task was confirmed "active"
 }
 
 // --- Event Types ---

@@ -82,6 +82,14 @@ export class TaskService {
     if (task) {
       task.status = TaskStatus.Assigned;
       task.assignedAgentId = agentId;
+      task.lastPulse = Date.now();
+    }
+  }
+
+  pulseTask(taskId: string): void {
+    const task = this.tasks.get(taskId);
+    if (task) {
+      task.lastPulse = Date.now();
     }
   }
 

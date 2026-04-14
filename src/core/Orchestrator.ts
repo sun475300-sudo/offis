@@ -116,7 +116,32 @@ export class Orchestrator {
   startDispatchLoop(intervalMs: number = 2000): void {
     this.dispatchInterval = window.setInterval(() => {
       this.dispatchPendingTasks();
+      this.checkStaleTasks();
     }, intervalMs);
+  }
+
+  private checkStaleTasks(): void {
+    const allTasks = Array.from(this.taskService.getPendingTasks()); // This is just pending
+    // Actually we need all tasks that are NOT completed/failed
+    const activeTasks = Array.from((this.taskService as any).tasks.values() as TaskInfo[])
+      .filter(t => t.status === TaskStatus.Assigned || t.status === TaskStatus.InProgress);
+
+    const STALE_TIMEOUT = 15000; // 15 seconds
+    const now = Date.now();
+
+    for (const task of activeTasks) {
+      const pulse = task.lastPulse || task.createdAt;
+      if (now - pulse > STALE_TIMEOUT) {
+        console.warn(`[Orchestrator] Task "${task.description}" stalled — resetting to Pending`);
+        task.status = TaskStatus.Pending;
+        task.assignedAgentId = null;
+        this.eventBus.emit(EventType.TaskFailed, { 
+          taskId: task.id, 
+          agentId: 'system', 
+          reason: 'task_timeout' 
+        });
+      }
+    }
   }
 
   stopDispatchLoop(): void {
