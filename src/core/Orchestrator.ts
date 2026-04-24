@@ -122,9 +122,8 @@ export class Orchestrator {
   }
 
   private checkStaleTasks(): void {
-    const allTasks = Array.from(this.taskService.getPendingTasks()); // This is just pending
-    // Actually we need all tasks that are NOT completed/failed
-    const activeTasks = Array.from((this.taskService as any).tasks.values() as TaskInfo[])
+    const activeTasks = this.taskService
+      .getAllTasks()
       .filter(t => t.status === TaskStatus.Assigned || t.status === TaskStatus.InProgress);
 
     const STALE_TIMEOUT = 15000; // 15 seconds
