@@ -112,10 +112,16 @@ export class AnalyticsEngine {
     if (entries.length === 0) {
       return { name, points: [], aggregation };
     }
+    // Guard against interval <= 0 — Math.ceil((max - min) / 0) is
+    // Infinity, which would try to allocate an infinite number of
+    // buckets and hang the loop.
+    if (!Number.isFinite(interval) || interval <= 0) {
+      return { name, points: [], aggregation };
+    }
 
     const minTime = Math.min(...entries.map(e => e.timestamp));
     const maxTime = Math.max(...entries.map(e => e.timestamp));
-    const buckets = Math.ceil((maxTime - minTime) / interval);
+    const buckets = Math.max(1, Math.ceil((maxTime - minTime) / interval));
 
     const points: TimeSeriesPoint[] = [];
     
