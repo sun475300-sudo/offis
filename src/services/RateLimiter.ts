@@ -112,13 +112,26 @@ export class RateLimiter {
   }
 
   consume(key: string, amount = 1): boolean {
-    const result = this.check(key);
-    if (!result.allowed) return false;
+    // Previously delegated to check() (which itself increments count by 1)
+    // and then added `amount` on top — so consume(key, 5) actually
+    // spent 6 tokens. Do the budget check inline with `amount`.
+    const config = this.limits.get(key);
+    if (!config) return true;
 
-    const record = this.records.get(key);
-    if (record) {
-      record.count += amount;
+    const now = Date.now();
+    let record = this.records.get(key);
+    if (!record || now >= record.resetTime) {
+      record = { key, count: 0, resetTime: now + config.windowMs, blocked: false };
+      this.records.set(key, record);
     }
+    if (record.blocked) return false;
+    if (record.count + amount > config.maxRequests) {
+      record.blocked = true;
+      this.notifyListeners(key, false);
+      return false;
+    }
+    record.count += amount;
+    this.notifyListeners(key, true);
     return true;
   }
 
