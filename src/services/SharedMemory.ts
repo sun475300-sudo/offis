@@ -203,8 +203,18 @@ export class SharedMemory {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
-      this.entries.clear();
+      if (!Array.isArray(data)) return false;
+      // Validate shape before mutating state — previously a malformed
+      // payload (e.g. one entry missing `id`) would set `undefined` as
+      // the Map key or corrupt existing keys.
+      const parsed: MemoryEntry[] = [];
       for (const entry of data) {
+        if (!entry || typeof entry !== 'object') continue;
+        if (typeof entry.id !== 'string' || typeof entry.type !== 'string') continue;
+        parsed.push(entry as MemoryEntry);
+      }
+      this.entries.clear();
+      for (const entry of parsed) {
         this.entries.set(entry.id, entry);
       }
       return true;
