@@ -37,6 +37,19 @@ export class StatePersistence {
     window.addEventListener('beforeunload', () => this.saveToStorage());
   }
 
+  // Debounced handle for the auto-persist timer. localStorage writes are
+  // synchronous and can stall the main thread, so batch them instead of
+  // firing on every save() call.
+  private persistHandle: number | null = null;
+  private schedulePersist(): void {
+    if (typeof window === 'undefined') return;
+    if (this.persistHandle !== null) return;
+    this.persistHandle = window.setTimeout(() => {
+      this.persistHandle = null;
+      void this.saveToStorage();
+    }, 250);
+  }
+
   static getInstance(): StatePersistence {
     if (!StatePersistence.instance) {
       StatePersistence.instance = new StatePersistence();
@@ -61,6 +74,10 @@ export class StatePersistence {
     this.storage.set(key, state);
     this.cleanup();
     this.notifyListeners(state);
+    // Previously only saved on beforeunload; a mid-session tab crash or
+    // force-reload lost every write since load. Schedule a debounced
+    // flush so recent data survives.
+    this.schedulePersist();
 
     return state;
   }
