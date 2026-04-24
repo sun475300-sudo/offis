@@ -85,6 +85,19 @@ export class FaultTolerance {
       };
     }
 
+    // Honor fail_fast mode: once an operation has exceeded its error
+    // budget, short-circuit immediately instead of attempting fn()
+    // again. Previously shouldFailFast existed but execute() never
+    // consulted it, so configure({ mode: 'fail_fast' }) did nothing.
+    if (this.shouldFailFast(operationId)) {
+      return {
+        success: false,
+        error: 'Fail-fast threshold exceeded',
+        fallbackUsed: false,
+        executionTime: Date.now() - startTime
+      };
+    }
+
     try {
       const timeout = operation.timeout || this.config.timeout;
       const result = await this.executeWithTimeout(operation.fn, timeout);
