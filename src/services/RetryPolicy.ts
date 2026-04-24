@@ -80,7 +80,16 @@ export class RetryPolicy {
         };
         attempts.push(attemptInfo);
 
-        if (attempt >= config.maxAttempts) {
+        // Honor config.retryableErrors: the field was declared on
+        // RetryConfig but execute() never consulted it, so every error
+        // was retried regardless of configuration. Bail out immediately
+        // when the error doesn't match the allow-list (if one is set).
+        const retryable = !config.retryableErrors
+          || config.retryableErrors.length === 0
+          || config.retryableErrors.some(pattern =>
+              err.name === pattern || err.message.includes(pattern));
+
+        if (!retryable || attempt >= config.maxAttempts) {
           return {
             success: false,
             attempts,
