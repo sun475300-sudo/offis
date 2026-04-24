@@ -237,7 +237,11 @@ export class ConfigManager {
     const a = document.createElement('a');
     a.href = url;
     a.download = `pixel-office-config-${Date.now()}.json`;
+    // Firefox and some Safari versions ignore click() on a detached <a>.
+    // Append the anchor before clicking, then clean up.
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 }
