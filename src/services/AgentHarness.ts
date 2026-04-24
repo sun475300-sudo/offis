@@ -395,6 +395,7 @@ export class ManagedAgentSessionManager {
   private static instance: ManagedAgentSessionManager;
   private sessions: Map<string, ManagedAgentSession> = new Map();
   private sessionCounter = 0;
+  private readonly maxSessions = 200;
 
   static getInstance(): ManagedAgentSessionManager {
     if (!this.instance) {
@@ -429,6 +430,20 @@ export class ManagedAgentSessionManager {
     };
 
     this.sessions.set(session.id, session);
+    // Evict the oldest completed/error sessions first; as a last resort
+    // drop by insertion order. Keeps active and paused sessions alive.
+    if (this.sessions.size > this.maxSessions) {
+      const toDrop = this.sessions.size - this.maxSessions;
+      const candidates: string[] = [];
+      for (const [id, s] of this.sessions) {
+        if (s.state === 'completed' || s.state === 'error') candidates.push(id);
+      }
+      for (let i = 0; i < toDrop; i++) {
+        const id = candidates[i] ?? this.sessions.keys().next().value;
+        if (id === undefined) break;
+        this.sessions.delete(id);
+      }
+    }
     this.saveToPersistence();
     return session;
   }
