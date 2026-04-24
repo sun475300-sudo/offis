@@ -162,13 +162,13 @@ export class MessageRouter {
 
     const routes = this.route(msg);
     for (const receiverId of routes) {
-      this.deliver(msg, receiverId);
+      void this.deliver(msg, receiverId);
     }
 
     return msg.id;
   }
 
-  private deliver(message: RoutableMessage, receiverId: string): void {
+  private async deliver(message: RoutableMessage, receiverId: string): Promise<void> {
     const key = `${message.id}-${receiverId}`;
     const record: DeliveryRecord = {
       messageId: message.id,
@@ -187,7 +187,7 @@ export class MessageRouter {
     if (handler) {
       record.attempts++;
       try {
-        handler(message);
+        await handler(message);
         record.status = 'delivered';
       } catch (error) {
         record.status = 'failed';

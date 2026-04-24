@@ -169,7 +169,8 @@ export class StatePersistence {
     if (this.storage.size > this.maxStates) {
       const sorted = Array.from(this.storage.values())
         .sort((a, b) => a.updatedAt - b.updatedAt);
-      for (let i = 0; i < this.storage.size - this.maxStates; i++) {
+      const toRemove = this.storage.size - this.maxStates;
+      for (let i = 0; i < toRemove; i++) {
         this.storage.delete(sorted[i].id);
       }
     }

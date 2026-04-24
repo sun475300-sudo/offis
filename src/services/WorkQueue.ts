@@ -128,11 +128,12 @@ export class WorkQueue {
     const workIndex = this.queue.findIndex(w => w.id === workId);
     if (workIndex < 0) return false;
 
+    const work = this.queue[workIndex];
     this.queue.splice(workIndex, 1);
     this.processing.delete(workId);
-    return this.enqueue(this.queue[workIndex].type, this.queue[workIndex].payload, {
-      priority: this.queue[workIndex].priority,
-      maxRetries: this.queue[workIndex].maxRetries
+    return this.enqueue(work.type, work.payload, {
+      priority: work.priority,
+      maxRetries: work.maxRetries,
     }) !== null;
   }
 

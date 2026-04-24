@@ -114,8 +114,13 @@ export class KnowledgeGraph {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (current.nodeId === endId) {
-        return { nodes: current.path, edges: current.edges, totalWeight: current.weight };
+      const currentNode = this.nodes.get(current.nodeId);
+      if (current.nodeId === endId && currentNode) {
+        return {
+          nodes: [...current.path, currentNode],
+          edges: current.edges,
+          totalWeight: current.weight,
+        };
       }
 
       if (current.path.length >= maxDepth) continue;

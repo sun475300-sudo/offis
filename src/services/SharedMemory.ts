@@ -169,7 +169,8 @@ export class SharedMemory {
     if (this.entries.size > this.options.maxEntries) {
       const sorted = Array.from(this.entries.values())
         .sort((a, b) => a.lastAccessed - b.lastAccessed);
-      for (let i = 0; i < this.entries.size - this.options.maxEntries; i++) {
+      const toRemove = this.entries.size - this.options.maxEntries;
+      for (let i = 0; i < toRemove; i++) {
         this.entries.delete(sorted[i].id);
       }
     }
