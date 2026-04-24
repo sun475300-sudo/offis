@@ -209,19 +209,10 @@ export class MeetingRoomRenderer {
     this.container.addChild(bubble);
     room.bubbles.push(bubble);
 
-    // Fade in
-    let fadeIn = 0;
-    const fadeInTicker = () => {
-      fadeIn += 0.08;
-      bubble.alpha = Math.min(1, fadeIn);
-      if (fadeIn >= 1) this.container.removeListener('__fadeIn', fadeInTicker as any);
-    };
-    // Use a simple interval instead
-    const iv = setInterval(() => {
-      fadeIn += 0.08;
-      bubble.alpha = Math.min(1, fadeIn);
-      if (fadeIn >= 1) clearInterval(iv);
-    }, 16);
+    // Fade in is driven by the update() loop below — running it via
+    // setInterval risked writing alpha on a destroyed bubble if the room
+    // was torn down inside the first 200ms, and left a dangling timer if
+    // update() never runs again.
   }
 
   private _clearBubbles(room: MeetingRoom): void {
@@ -260,12 +251,14 @@ export class MeetingRoomRenderer {
         this._spawnBubble(room);
       }
 
-      // Float existing bubbles upward
+      // Float existing bubbles upward and drive the fade-in/out.
       if (room.bubbles) {
         for (const b of room.bubbles) {
           b.y -= 0.2;
           if (b.y < room.location.row * TILE_SIZE - 80) {
             b.alpha = Math.max(0, b.alpha - 0.02);
+          } else if (b.alpha < 1) {
+            b.alpha = Math.min(1, b.alpha + 0.08);
           }
         }
       }
