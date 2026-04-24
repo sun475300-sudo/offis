@@ -161,13 +161,20 @@ export class FaultTolerance {
     const count = this.errorCounts.get(operationId) || 0;
     this.errorCounts.set(operationId, count + 1);
 
+    const operation = this.operations.get(operationId);
+    // Only mark as handled when a fallback is both enabled *and*
+    // actually exists for this operation. Previously the flag mirrored
+    // config.fallbackEnabled blindly, making recoveryRate look healthy
+    // even when no fallback could run.
+    const handled = !!(this.config.fallbackEnabled && operation?.fallback);
+
     const event: FaultEvent = {
       id: `fault-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       operationId,
       operationName,
       timestamp: Date.now(),
       error,
-      handled: this.config.fallbackEnabled
+      handled,
     };
 
     this.faultEvents.push(event);
