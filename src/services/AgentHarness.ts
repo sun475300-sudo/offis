@@ -456,8 +456,13 @@ export class ManagedAgentSessionManager {
   private loadFromPersistence(): void {
     const persisted = statePersistence.load('session', 'managed-agents-all');
     if (persisted && persisted.data && Array.isArray(persisted.data.sessions)) {
-      const loadedSessions = persisted.data.sessions as ManagedAgentSession[];
-      for (const s of loadedSessions) {
+      const loadedSessions = persisted.data.sessions as unknown[];
+      for (const raw of loadedSessions) {
+        // Skip entries that don't look like a valid session — previously
+        // a corrupt persisted entry set `undefined` as the Map key.
+        if (!raw || typeof raw !== 'object') continue;
+        const s = raw as ManagedAgentSession;
+        if (typeof s.id !== 'string' || typeof s.agentId !== 'string') continue;
         this.sessions.set(s.id, s);
         // Update counter to avoid ID collision
         const num = parseInt(s.id.split('-')[1]);
