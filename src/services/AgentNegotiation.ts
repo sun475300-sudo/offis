@@ -72,6 +72,11 @@ export class AgentNegotiation {
     participants: string[],
     initialTerms: NegotiationTerms
   ): Negotiation {
+    if (!participants || participants.length === 0) {
+      // Fail loud instead of silently creating an offer with undefined
+      // offererId that corrupts every downstream filter/search.
+      throw new Error('startNegotiation requires at least one participant');
+    }
     const id = `neg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const negotiation: Negotiation = {
       id,
