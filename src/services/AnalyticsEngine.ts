@@ -90,10 +90,13 @@ export class AnalyticsEngine {
 
     const cutoff = Date.now() - this.config.retentionPeriod;
     const valid = entries.filter(e => e.timestamp > cutoff);
-    
-    if (valid.length > this.config.maxDataPoints) {
-      this.metrics.set(name, valid.slice(-this.config.maxDataPoints));
-    }
+    // Always write back the filtered set; previously expired entries
+    // were only removed when the array also exceeded maxDataPoints, so
+    // low-rate metrics held stale data forever.
+    const trimmed = valid.length > this.config.maxDataPoints
+      ? valid.slice(-this.config.maxDataPoints)
+      : valid;
+    this.metrics.set(name, trimmed);
   }
 
   getMetric(name: string, since?: number): AnalyticsMetric[] {

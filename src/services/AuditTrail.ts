@@ -90,6 +90,15 @@ export class AuditTrail {
     };
 
     this.entries.push(entry);
+    // Match log() so the cap is enforced and subscribers still receive
+    // failure entries — otherwise failures silently grow the array past
+    // maxEntries and never reach any observer.
+    if (this.entries.length > this.maxEntries) {
+      this.entries.shift();
+    }
+    for (const listener of this.listeners) {
+      listener(entry);
+    }
     return id;
   }
 
