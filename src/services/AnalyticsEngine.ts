@@ -179,7 +179,7 @@ export class AnalyticsEngine {
     }
 
     return {
-      id: `report-${Date.now()}`,
+      id: `report-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       title,
       metrics,
       timeRange,

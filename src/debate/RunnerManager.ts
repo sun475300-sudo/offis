@@ -69,6 +69,8 @@ export class RunnerManager {
   private runners: Map<string, TestRunner> = new Map();
   private testResults: Map<string, TestResult> = new Map();
   private feedbackLoops: Map<string, FeedbackLoop> = new Map();
+  private readonly maxTestResults = 500;
+  private readonly maxFeedbackLoops = 100;
 
   constructor() {
     this.initDefaultRunners();
@@ -142,7 +144,7 @@ export class RunnerManager {
 
     const hasError = Math.random() > 0.7;
     const result: TestResult = {
-      id: `result-${Date.now()}`,
+      id: `result-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       runnerId,
       status: hasError ? 'failure' : 'success',
       startTime: Date.now(),
@@ -173,6 +175,16 @@ export class RunnerManager {
     };
 
     this.testResults.set(result.id, result);
+    // Evict oldest by insertion order so the history doesn't grow without bound.
+    if (this.testResults.size > this.maxTestResults) {
+      const toDrop = this.testResults.size - this.maxTestResults;
+      const iter = this.testResults.keys();
+      for (let i = 0; i < toDrop; i++) {
+        const key = iter.next().value;
+        if (key === undefined) break;
+        this.testResults.delete(key);
+      }
+    }
     runner.status = hasError ? 'error' : 'idle';
     runner.currentTask = undefined;
 
@@ -185,7 +197,7 @@ export class RunnerManager {
     runnerId: string,
     targetMetrics: { minFps?: number; maxFrameDrop?: number; maxMemory?: number }
   ): Promise<FeedbackLoop> {
-    const loopId = `loop-${Date.now()}`;
+    const loopId = `loop-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     const loop: FeedbackLoop = {
       id: loopId,
       state: FeedbackLoopState.Idle,
@@ -200,6 +212,15 @@ export class RunnerManager {
     };
 
     this.feedbackLoops.set(loopId, loop);
+    if (this.feedbackLoops.size > this.maxFeedbackLoops) {
+      const toDrop = this.feedbackLoops.size - this.maxFeedbackLoops;
+      const iter = this.feedbackLoops.keys();
+      for (let i = 0; i < toDrop; i++) {
+        const key = iter.next().value;
+        if (key === undefined) break;
+        this.feedbackLoops.delete(key);
+      }
+    }
     return loop;
   }
 
