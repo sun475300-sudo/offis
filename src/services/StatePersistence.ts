@@ -250,11 +250,20 @@ export class StatePersistence {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
-      if (data.states) {
-        this.storage.clear();
-        for (const state of data.states) {
-          this.storage.set(state.id, state);
-        }
+      if (!data || typeof data !== 'object') return false;
+      if (!Array.isArray(data.states)) return false;
+      // Validate each state has at least an id before blowing away the
+      // live storage. Without this check a malformed payload set
+      // `undefined` as a Map key and corrupted all subsequent loads.
+      const parsed: PersistedState[] = [];
+      for (const state of data.states) {
+        if (!state || typeof state !== 'object') continue;
+        if (typeof state.id !== 'string' || typeof state.type !== 'string') continue;
+        parsed.push(state as PersistedState);
+      }
+      this.storage.clear();
+      for (const state of parsed) {
+        this.storage.set(state.id, state);
       }
       return true;
     } catch {
