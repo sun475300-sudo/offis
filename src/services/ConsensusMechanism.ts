@@ -201,10 +201,12 @@ export class ConsensusMechanism {
         for (const option of options) {
           scores.set(option.id, option.votes.length);
         }
-        const sorted = options.sort((a, b) =>
+        // Copy before sort — options.sort() would reorder the proposal's
+        // options array in place, permanently altering UI ordering.
+        const sorted = [...options].sort((a, b) =>
           (scores.get(b.id) || 0) - (scores.get(a.id) || 0)
         );
-        return sorted[0];
+        return sorted[0] ?? null;
       }
 
       default:
