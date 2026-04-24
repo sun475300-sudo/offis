@@ -123,12 +123,24 @@ export class MetricsCollector {
   getAggregatedStats(name: string): { min: number; max: number; avg: number; count: number } | null {
     const series = this.metrics.get(name);
     if (!series || series.points.length === 0) return null;
-    const values = series.points.map(p => p.value);
+    // Single-pass min/max/sum — avoids Math.min(...values) / Math.max(...values),
+    // which throws "Maximum call stack size exceeded" once points climbs
+    // past the engine's argument limit. With maxDataPoints at 1000 today
+    // we're OK, but a configured higher cap would break the spread.
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    for (const p of series.points) {
+      const v = p.value;
+      if (v < min) min = v;
+      if (v > max) max = v;
+      sum += v;
+    }
     return {
-      min: Math.min(...values),
-      max: Math.max(...values),
-      avg: values.reduce((a, b) => a + b, 0) / values.length,
-      count: values.length
+      min,
+      max,
+      avg: sum / series.points.length,
+      count: series.points.length,
     };
   }
 
