@@ -16,6 +16,7 @@ export interface AdaptationEvent {
   id: string;
   ruleId: string;
   trigger: AdaptationTrigger;
+  action: AdaptationAction;
   timestamp: number;
   beforeState: Record<string, unknown>;
   afterState?: Record<string, unknown>;
@@ -151,6 +152,7 @@ export class AdaptationEngine {
       id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       ruleId: rule.id,
       trigger: rule.trigger,
+      action: rule.action,
       timestamp: Date.now(),
       beforeState: { ...metrics },
       success: false
@@ -244,6 +246,7 @@ export class AdaptationEngine {
       if (event.success) stats.successfulAdaptations++;
       else stats.failedAdaptations++;
       stats.byTrigger[event.trigger] = (stats.byTrigger[event.trigger] || 0) + 1;
+      stats.byAction[event.action] = (stats.byAction[event.action] || 0) + 1;
     }
 
     return stats;

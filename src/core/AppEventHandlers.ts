@@ -86,7 +86,9 @@ export function setupAllEventHandlers(
     try {
       const { sessionId } = event.payload as { sessionId: string };
       if (runDebateWithVisualization) {
-        runDebateWithVisualization(sessionId);
+        runDebateWithVisualization(sessionId).catch(err => {
+          console.error('[EventBus] runDebateWithVisualization rejected:', err);
+        });
       }
     } catch (e) {
       console.error('[EventBus] Error in TechnicalDebateTriggered handler:', e);

@@ -193,7 +193,12 @@ export class GitHubService {
 
     const data = await response.json();
     if (data.content) {
-      return atob(data.content);
+      // GitHub returns base64 with embedded newlines; strict atob rejects
+      // those. Also atob produces a raw byte string, which corrupts any
+      // multibyte UTF-8 — go through the proper decoder instead.
+      const cleaned = String(data.content).replace(/\s+/g, '');
+      const bytes = Uint8Array.from(atob(cleaned), c => c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
     }
     return '';
   }

@@ -33,6 +33,7 @@ export class TaskDelegation {
   private static instance: TaskDelegation;
   private agentLoads: Map<string, number> = new Map();
   private delegationHistory: { taskId: string; agentId: string; timestamp: number; success: boolean }[] = [];
+  private readonly maxHistory = 500;
   private defaultStrategy: DelegationStrategy = 'capability_match';
   private maxRetries = 3;
 
@@ -84,11 +85,11 @@ export class TaskDelegation {
           updatedAt: Date.now()
         };
 
-        this.delegationHistory.push({
+        this.pushHistory({
           taskId: request.taskId,
           agentId: selectedAgentId,
           timestamp: Date.now(),
-          success: true
+          success: true,
         });
 
         this.decrementLoad(selectedAgentId);
@@ -105,11 +106,11 @@ export class TaskDelegation {
       }
     }
 
-    this.delegationHistory.push({
+    this.pushHistory({
       taskId: request.taskId,
       agentId: selectedAgentId,
       timestamp: Date.now(),
-      success: false
+      success: false,
     });
 
     return {
@@ -164,6 +165,13 @@ export class TaskDelegation {
     }
 
     return selected;
+  }
+
+  private pushHistory(entry: { taskId: string; agentId: string; timestamp: number; success: boolean }): void {
+    this.delegationHistory.push(entry);
+    if (this.delegationHistory.length > this.maxHistory) {
+      this.delegationHistory.splice(0, this.delegationHistory.length - this.maxHistory);
+    }
   }
 
   private incrementLoad(agentId: string): void {

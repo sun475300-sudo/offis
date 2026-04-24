@@ -1,6 +1,8 @@
 import {
+  AgentState,
   EventType,
   IEventBus,
+  ITilemap,
   TaskInfo,
   TaskStatus,
 } from '../types';
@@ -121,25 +123,35 @@ export class Orchestrator {
   }
 
   private checkStaleTasks(): void {
-    const allTasks = Array.from(this.taskService.getPendingTasks()); // This is just pending
-    // Actually we need all tasks that are NOT completed/failed
-    const activeTasks = Array.from((this.taskService as any).tasks.values() as TaskInfo[])
+    const activeTasks = this.taskService
+      .getAllTasks()
       .filter(t => t.status === TaskStatus.Assigned || t.status === TaskStatus.InProgress);
 
-    const STALE_TIMEOUT = 15000; // 15 seconds
+    const STALE_TIMEOUT = 15000; // 15 seconds of no observable progress
     const now = Date.now();
 
     for (const task of activeTasks) {
+      // Skip tasks whose agent is actively progressing. pulseTask isn't
+      // called anywhere, so relying on lastPulse alone killed long
+      // tasks (estimatedDuration > 15s) even while the agent was
+      // clearly still working/moving/returning.
+      if (task.assignedAgentId) {
+        const agent = this.agentManager.getAgent(task.assignedAgentId);
+        const state = agent?.getState();
+        if (state === AgentState.Working || state === AgentState.Moving || state === AgentState.Returning) {
+          continue;
+        }
+      }
+
       const pulse = task.lastPulse || task.createdAt;
       if (now - pulse > STALE_TIMEOUT) {
         console.warn(`[Orchestrator] Task "${task.description}" stalled — resetting to Pending`);
         task.status = TaskStatus.Pending;
         task.assignedAgentId = null;
-        this.eventBus.emit(EventType.TaskFailed, { 
-          taskId: task.id, 
-          agentId: 'system', 
-          reason: 'task_timeout' 
-        });
+        task.lastPulse = now; // reset watchdog so we don't re-trigger next tick
+        // Previously also emitted TaskFailed here, but this class's own
+        // TaskFailed handler runs markFailed(taskId), which flips the
+        // status we just set back to Pending straight to Failed.
       }
     }
   }

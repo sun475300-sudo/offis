@@ -395,6 +395,7 @@ export class ManagedAgentSessionManager {
   private static instance: ManagedAgentSessionManager;
   private sessions: Map<string, ManagedAgentSession> = new Map();
   private sessionCounter = 0;
+  private readonly maxSessions = 200;
 
   static getInstance(): ManagedAgentSessionManager {
     if (!this.instance) {
@@ -429,6 +430,20 @@ export class ManagedAgentSessionManager {
     };
 
     this.sessions.set(session.id, session);
+    // Evict the oldest completed/error sessions first; as a last resort
+    // drop by insertion order. Keeps active and paused sessions alive.
+    if (this.sessions.size > this.maxSessions) {
+      const toDrop = this.sessions.size - this.maxSessions;
+      const candidates: string[] = [];
+      for (const [id, s] of this.sessions) {
+        if (s.state === 'completed' || s.state === 'error') candidates.push(id);
+      }
+      for (let i = 0; i < toDrop; i++) {
+        const id = candidates[i] ?? this.sessions.keys().next().value;
+        if (id === undefined) break;
+        this.sessions.delete(id);
+      }
+    }
     this.saveToPersistence();
     return session;
   }
@@ -441,8 +456,13 @@ export class ManagedAgentSessionManager {
   private loadFromPersistence(): void {
     const persisted = statePersistence.load('session', 'managed-agents-all');
     if (persisted && persisted.data && Array.isArray(persisted.data.sessions)) {
-      const loadedSessions = persisted.data.sessions as ManagedAgentSession[];
-      for (const s of loadedSessions) {
+      const loadedSessions = persisted.data.sessions as unknown[];
+      for (const raw of loadedSessions) {
+        // Skip entries that don't look like a valid session — previously
+        // a corrupt persisted entry set `undefined` as the Map key.
+        if (!raw || typeof raw !== 'object') continue;
+        const s = raw as ManagedAgentSession;
+        if (typeof s.id !== 'string' || typeof s.agentId !== 'string') continue;
         this.sessions.set(s.id, s);
         // Update counter to avoid ID collision
         const num = parseInt(s.id.split('-')[1]);
@@ -491,12 +511,16 @@ export class ManagedAgentSessionManager {
     s.state = 'completed';
     s.tasksCompleted++;
     s.lastActiveAt = Date.now();
+    this.saveToPersistence();
   }
 
   /** 세션을 일시 중지합니다 */
   pauseSession(sessionId: string): void {
     const s = this.sessions.get(sessionId);
-    if (s) s.state = 'paused';
+    if (!s) return;
+    s.state = 'paused';
+    s.lastActiveAt = Date.now();
+    this.saveToPersistence();
   }
 
   /** 모든 세션 목록을 반환합니다 */

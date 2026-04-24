@@ -90,11 +90,23 @@ export class AuditTrail {
     };
 
     this.entries.push(entry);
+    // Match log() so the cap is enforced and subscribers still receive
+    // failure entries — otherwise failures silently grow the array past
+    // maxEntries and never reach any observer.
+    if (this.entries.length > this.maxEntries) {
+      this.entries.shift();
+    }
+    for (const listener of this.listeners) {
+      listener(entry);
+    }
     return id;
   }
 
   get(filter?: AuditFilter): AuditEntry[] {
-    let result = this.entries;
+    // Start from a copy so the trailing sort never mutates this.entries
+    // in place — otherwise a no-filter call would reverse the array's
+    // insertion order and break shift()-based eviction in log().
+    let result: AuditEntry[] = [...this.entries];
 
     if (filter) {
       if (filter.action) {

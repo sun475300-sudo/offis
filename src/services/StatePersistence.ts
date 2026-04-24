@@ -37,6 +37,19 @@ export class StatePersistence {
     window.addEventListener('beforeunload', () => this.saveToStorage());
   }
 
+  // Debounced handle for the auto-persist timer. localStorage writes are
+  // synchronous and can stall the main thread, so batch them instead of
+  // firing on every save() call.
+  private persistHandle: number | null = null;
+  private schedulePersist(): void {
+    if (typeof window === 'undefined') return;
+    if (this.persistHandle !== null) return;
+    this.persistHandle = window.setTimeout(() => {
+      this.persistHandle = null;
+      void this.saveToStorage();
+    }, 250);
+  }
+
   static getInstance(): StatePersistence {
     if (!StatePersistence.instance) {
       StatePersistence.instance = new StatePersistence();
@@ -61,6 +74,10 @@ export class StatePersistence {
     this.storage.set(key, state);
     this.cleanup();
     this.notifyListeners(state);
+    // Previously only saved on beforeunload; a mid-session tab crash or
+    // force-reload lost every write since load. Schedule a debounced
+    // flush so recent data survives.
+    this.schedulePersist();
 
     return state;
   }
@@ -98,10 +115,15 @@ export class StatePersistence {
   }
 
   createSnapshot(metadata?: Record<string, unknown>): StateSnapshot {
+    // Deep-clone states so future save()s don't retroactively mutate
+    // the snapshot (save() updates the same PersistedState object in
+    // place when an id already exists).
+    const snappedStates: PersistedState[] = Array.from(this.storage.values())
+      .map(s => JSON.parse(JSON.stringify(s)) as PersistedState);
     const snapshot: StateSnapshot = {
-      id: `snapshot-${Date.now()}`,
+      id: `snapshot-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       timestamp: Date.now(),
-      states: Array.from(this.storage.values()),
+      states: snappedStates,
       metadata
     };
 
@@ -169,7 +191,8 @@ export class StatePersistence {
     if (this.storage.size > this.maxStates) {
       const sorted = Array.from(this.storage.values())
         .sort((a, b) => a.updatedAt - b.updatedAt);
-      for (let i = 0; i < this.storage.size - this.maxStates; i++) {
+      const toRemove = this.storage.size - this.maxStates;
+      for (let i = 0; i < toRemove; i++) {
         this.storage.delete(sorted[i].id);
       }
     }
@@ -227,11 +250,20 @@ export class StatePersistence {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
-      if (data.states) {
-        this.storage.clear();
-        for (const state of data.states) {
-          this.storage.set(state.id, state);
-        }
+      if (!data || typeof data !== 'object') return false;
+      if (!Array.isArray(data.states)) return false;
+      // Validate each state has at least an id before blowing away the
+      // live storage. Without this check a malformed payload set
+      // `undefined` as a Map key and corrupted all subsequent loads.
+      const parsed: PersistedState[] = [];
+      for (const state of data.states) {
+        if (!state || typeof state !== 'object') continue;
+        if (typeof state.id !== 'string' || typeof state.type !== 'string') continue;
+        parsed.push(state as PersistedState);
+      }
+      this.storage.clear();
+      for (const state of parsed) {
+        this.storage.set(state.id, state);
       }
       return true;
     } catch {

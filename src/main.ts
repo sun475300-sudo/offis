@@ -32,7 +32,6 @@ import { Pathfinder } from './spatial/Pathfinder';
 import { TilemapRenderer } from './rendering/TilemapRenderer';
 import { AgentRenderer } from './rendering/AgentRenderer';
 import { CameraController } from './rendering/CameraController';
-import { GridRenderer } from './rendering/GridRenderer';
 import { ParticleSystem } from './rendering/ParticleSystem';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
@@ -102,15 +101,15 @@ export class PixelOfficeApp {
     // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
     this.gitHubService = new GitHubService();
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
+    this.debateManager = new DebateManager();
     this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap, this.gitHubService, this.debateManager);
-    
+
     this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();
     this.toastManager = new ToastManager();
-    this.chatSystem = new ChatSystem(this.eventBus);
-    this.collaborationSystem = new CollaborationSystem(this.eventBus, this.agentManager, this.tilemap);
-    this.debateManager = new DebateManager(this.eventBus);
-    this.runnerManager = new RunnerManager(this.eventBus);
+    this.chatSystem = new ChatSystem();
+    this.collaborationSystem = new CollaborationSystem(this.agentManager, this.eventBus);
+    this.runnerManager = new RunnerManager();
 
     // Start Orchestrator's automatic assignment loop
     this.orchestrator.startDispatchLoop(2000);
@@ -350,13 +349,19 @@ export class PixelOfficeApp {
     agents.forEach((pair, idx) => {
       const target = confPos[idx] || confPos[0];
       pair.agent!.assignTask({
-        id: `debate-move-${Date.now()}`,
+        // Include agent id so the whole forEach doesn't hand out a single
+        // shared id (Date.now() resolves to the same ms for every element).
+        id: `debate-move-${sessionId}-${pair.agent!.id}`,
         description: '회의실 이동 (기술 토론)',
         requiredRole: pair.agent!.role,
         targetDesk: target,
         priority: TaskPriority.High,
         estimatedDuration: 1,
-        status: TaskStatus.Pending
+        status: TaskStatus.Pending,
+        assignedAgentId: pair.agent!.id,
+        progress: 0,
+        parentTaskId: null,
+        createdAt: Date.now(),
       });
     });
 

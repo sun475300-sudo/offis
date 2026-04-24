@@ -24,6 +24,35 @@ export class CameraController {
   private dragStart: Vec2 = { x: 0, y: 0 };
   private dragCameraStart: Vec2 = { x: 0, y: 0 };
 
+  // Bound listener references so destroy() can remove them.
+  private readonly onKeyDown = (e: KeyboardEvent) => this.keys.add(e.key);
+  private readonly onKeyUp = (e: KeyboardEvent) => this.keys.delete(e.key);
+  private readonly onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const zoomDelta = e.deltaY > 0 ? -0.15 : 0.15;
+    this.setZoom(this.targetZoom + zoomDelta);
+  };
+  private readonly onMouseDown = (e: MouseEvent) => {
+    if (e.button === 1 || e.button === 2) {
+      this.isDragging = true;
+      this.dragStart = { x: e.clientX, y: e.clientY };
+      this.dragCameraStart = { ...this.targetPosition };
+      this.followTarget = null;
+    }
+  };
+  private readonly onMouseMove = (e: MouseEvent) => {
+    if (this.isDragging) {
+      const dx = (e.clientX - this.dragStart.x) / this.currentZoom;
+      const dy = (e.clientY - this.dragStart.y) / this.currentZoom;
+      this.targetPosition.x = this.dragCameraStart.x - dx;
+      this.targetPosition.y = this.dragCameraStart.y - dy;
+    }
+  };
+  private readonly onMouseUp = () => {
+    this.isDragging = false;
+  };
+  private readonly onContextMenu = (e: MouseEvent) => e.preventDefault();
+
   constructor(container: PIXI.Container, private screenWidth: number, private screenHeight: number) {
     this.container = container;
     this.setupInput();
@@ -91,40 +120,23 @@ export class CameraController {
   }
 
   private setupInput(): void {
-    window.addEventListener('keydown', (e) => this.keys.add(e.key));
-    window.addEventListener('keyup', (e) => this.keys.delete(e.key));
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('wheel', this.onWheel, { passive: false });
+    window.addEventListener('mousedown', this.onMouseDown);
+    window.addEventListener('mousemove', this.onMouseMove);
+    window.addEventListener('mouseup', this.onMouseUp);
+    window.addEventListener('contextmenu', this.onContextMenu);
+  }
 
-    // Mouse wheel zoom
-    window.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomDelta = e.deltaY > 0 ? -0.15 : 0.15;
-      this.setZoom(this.targetZoom + zoomDelta);
-    }, { passive: false });
-
-    // Mouse drag panning
-    window.addEventListener('mousedown', (e) => {
-      if (e.button === 1 || e.button === 2) { // middle or right click
-        this.isDragging = true;
-        this.dragStart = { x: e.clientX, y: e.clientY };
-        this.dragCameraStart = { ...this.targetPosition };
-        this.followTarget = null;
-      }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (this.isDragging) {
-        const dx = (e.clientX - this.dragStart.x) / this.currentZoom;
-        const dy = (e.clientY - this.dragStart.y) / this.currentZoom;
-        this.targetPosition.x = this.dragCameraStart.x - dx;
-        this.targetPosition.y = this.dragCameraStart.y - dy;
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      this.isDragging = false;
-    });
-
-    // Prevent context menu
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
+  /** Remove input listeners. Call when the controller is no longer needed. */
+  destroy(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('wheel', this.onWheel);
+    window.removeEventListener('mousedown', this.onMouseDown);
+    window.removeEventListener('mousemove', this.onMouseMove);
+    window.removeEventListener('mouseup', this.onMouseUp);
+    window.removeEventListener('contextmenu', this.onContextMenu);
   }
 }

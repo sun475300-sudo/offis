@@ -3,6 +3,7 @@ import {
   EventType,
   GridCell,
   IEventBus,
+  ITilemap,
   LLMTaskDecomposition,
   TaskInfo,
   TaskPriority,
@@ -75,6 +76,11 @@ export class TaskService {
     return Array.from(this.tasks.values())
       .filter(t => t.status === TaskStatus.Pending)
       .sort((a, b) => b.priority - a.priority); // higher priority first
+  }
+
+  /** Return every task regardless of status. */
+  getAllTasks(): TaskInfo[] {
+    return Array.from(this.tasks.values());
   }
 
   markAssigned(taskId: string, agentId: string): void {

@@ -36,7 +36,10 @@ export class CacheManager<K extends string = string, V = unknown> {
   }
 
   set(key: K, value: V, ttl?: number): void {
-    if (this.cache.size >= this.config.maxSize) {
+    // Only evict when inserting a brand new key; updating an existing
+    // key doesn't grow the map, so previously we'd evict an unrelated
+    // entry on every re-set of an already-present key.
+    if (!this.cache.has(key) && this.cache.size >= this.config.maxSize) {
       this.evict();
     }
 
@@ -64,6 +67,11 @@ export class CacheManager<K extends string = string, V = unknown> {
 
     entry.hits++;
     this.stats.hits++;
+    // LRU: reinsert to move to the end of insertion order
+    if (this.config.evictionPolicy === 'lru') {
+      this.cache.delete(key);
+      this.cache.set(key, entry);
+    }
     return entry.value;
   }
 
@@ -94,13 +102,9 @@ export class CacheManager<K extends string = string, V = unknown> {
 
     switch (this.config.evictionPolicy) {
       case 'lru':
-        let minHits = Infinity;
-        for (const [key, entry] of this.cache) {
-          if (entry.hits < minHits) {
-            minHits = entry.hits;
-            keyToRemove = key;
-          }
-        }
+        // Oldest in Map insertion order is the least-recently-used entry,
+        // because get() re-inserts on access.
+        keyToRemove = this.cache.keys().next().value ?? null;
         break;
 
       case 'fifo':

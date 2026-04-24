@@ -12,8 +12,8 @@ import { DebateManager } from '../debate/DebateManager';
 import { RunnerManager, FeedbackLoopState } from '../debate/RunnerManager';
 import { GitHubService } from '../services/GitHubService';
 import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
-import { testSuite, StressTestConfig } from '../services/TestSuite';
-import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, systemReport } from '../services/FeatureServices';
+import { testSuite, StressTestConfig, systemReport } from '../services/TestSuite';
+import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub } from '../services/FeatureServices';
 import { getHarness, getHarnessSummary, buildSystemPrompt, sessionManager } from '../services/AgentHarness';
 
 export interface CLIContext {
@@ -252,6 +252,10 @@ function registerTestCommands(ctx: CLIContext): void {
           const status = result.state === FeedbackLoopState.Complete ? 'success' : 'failed';
           toastManager[status === 'success' ? 'success' : 'error']('Feedback Loop', `루프 완료: ${result.iteration}회 반복`);
           chatSystem.sendSystemMessage(`피드백 루프 ${status}: ${result.iteration}회 반복`);
+        }).catch(err => {
+          const msg = err instanceof Error ? err.message : String(err);
+          toastManager.error('Feedback Loop', `루프 실패: ${msg}`);
+          chatSystem.sendSystemMessage(`피드백 루프 오류: ${msg}`);
         });
 
         return `Feedback loop started: ${loop.id}`;
@@ -468,7 +472,9 @@ function registerMetaSkillCommands(ctx: CLIContext) {
   // ── /harness — 에이전트 하네스 현황 (Harness Engineering 개념)
   cliEngine.registerCommand({
     name: 'harness',
-    aliases: ['하네스', 'h'],
+    // 'h' previously collided with /help's 'h' alias and silently
+    // stole it via Map overwrite. Use 'hn' instead.
+    aliases: ['하네스', 'hn'],
     description: '에이전트 역할별 하네스(시스템 프롬프트+툴+컨텍스트) 현황 조회',
     usage: '/harness [role]',
     handler: async (args) => {
@@ -517,7 +523,9 @@ function registerMetaSkillCommands(ctx: CLIContext) {
   // 참조: https://youtu.be/IAEV_fUAdWk
   cliEngine.registerCommand({
     name: 'session',
-    aliases: ['세션', 'sessions', 's'],
+    // 's' previously collided with /status's 's' alias and stole it
+    // via Map overwrite. Use 'sn' instead.
+    aliases: ['세션', 'sessions', 'sn'],
     description: 'Managed Agent 세션 목록 조회 / 상세 메모리 보기',
     usage: '/session [session-id | demo]',
     handler: async (args) => {

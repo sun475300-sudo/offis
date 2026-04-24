@@ -114,8 +114,13 @@ export class KnowledgeGraph {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (current.nodeId === endId) {
-        return { nodes: current.path, edges: current.edges, totalWeight: current.weight };
+      const currentNode = this.nodes.get(current.nodeId);
+      if (current.nodeId === endId && currentNode) {
+        return {
+          nodes: [...current.path, currentNode],
+          edges: current.edges,
+          totalWeight: current.weight,
+        };
       }
 
       if (current.path.length >= maxDepth) continue;
@@ -186,6 +191,12 @@ export class KnowledgeGraph {
       }
     }
 
+    // Remove this node from every other node's adjacency set; previously
+    // only the deleted node's own outgoing entry was cleared, leaving
+    // dangling incoming references that pointed at a non-existent node.
+    for (const neighbors of this.adjacencyList.values()) {
+      neighbors.delete(id);
+    }
     this.adjacencyList.delete(id);
     return this.nodes.delete(id);
   }
@@ -221,23 +232,41 @@ export class KnowledgeGraph {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
+      if (!data || typeof data !== 'object') return false;
+      // Validate before clearing state; a malformed payload previously
+      // left the graph half-rebuilt with edges referencing non-existent
+      // nodes.
+      const rawNodes: unknown[] = Array.isArray(data.nodes) ? data.nodes : [];
+      const rawEdges: unknown[] = Array.isArray(data.edges) ? data.edges : [];
+      const validNodes: KnowledgeNode[] = [];
+      for (const node of rawNodes) {
+        if (!node || typeof node !== 'object') continue;
+        if (typeof (node as KnowledgeNode).id !== 'string') continue;
+        validNodes.push(node as KnowledgeNode);
+      }
+      const nodeIds = new Set(validNodes.map(n => n.id));
+      const validEdges: KnowledgeEdge[] = [];
+      for (const edge of rawEdges) {
+        if (!edge || typeof edge !== 'object') continue;
+        const e = edge as KnowledgeEdge;
+        if (typeof e.id !== 'string') continue;
+        // Skip edges pointing at nodes we didn't restore.
+        if (!nodeIds.has(e.sourceId) || !nodeIds.has(e.targetId)) continue;
+        validEdges.push(e);
+      }
+
       this.nodes.clear();
       this.edges.clear();
       this.adjacencyList.clear();
-
-      if (data.nodes) {
-        for (const node of data.nodes) {
-          this.nodes.set(node.id, node);
-        }
+      for (const node of validNodes) {
+        this.nodes.set(node.id, node);
       }
-      if (data.edges) {
-        for (const edge of data.edges) {
-          this.edges.set(edge.id, edge);
-          if (!this.adjacencyList.has(edge.sourceId)) {
-            this.adjacencyList.set(edge.sourceId, new Set());
-          }
-          this.adjacencyList.get(edge.sourceId)!.add(edge.targetId);
+      for (const edge of validEdges) {
+        this.edges.set(edge.id, edge);
+        if (!this.adjacencyList.has(edge.sourceId)) {
+          this.adjacencyList.set(edge.sourceId, new Set());
         }
+        this.adjacencyList.get(edge.sourceId)!.add(edge.targetId);
       }
       return true;
     } catch {

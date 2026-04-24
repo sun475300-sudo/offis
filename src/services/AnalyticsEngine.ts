@@ -90,10 +90,13 @@ export class AnalyticsEngine {
 
     const cutoff = Date.now() - this.config.retentionPeriod;
     const valid = entries.filter(e => e.timestamp > cutoff);
-    
-    if (valid.length > this.config.maxDataPoints) {
-      this.metrics.set(name, valid.slice(-this.config.maxDataPoints));
-    }
+    // Always write back the filtered set; previously expired entries
+    // were only removed when the array also exceeded maxDataPoints, so
+    // low-rate metrics held stale data forever.
+    const trimmed = valid.length > this.config.maxDataPoints
+      ? valid.slice(-this.config.maxDataPoints)
+      : valid;
+    this.metrics.set(name, trimmed);
   }
 
   getMetric(name: string, since?: number): AnalyticsMetric[] {
@@ -109,10 +112,22 @@ export class AnalyticsEngine {
     if (entries.length === 0) {
       return { name, points: [], aggregation };
     }
+    // Guard against interval <= 0 — Math.ceil((max - min) / 0) is
+    // Infinity, which would try to allocate an infinite number of
+    // buckets and hang the loop.
+    if (!Number.isFinite(interval) || interval <= 0) {
+      return { name, points: [], aggregation };
+    }
 
-    const minTime = Math.min(...entries.map(e => e.timestamp));
-    const maxTime = Math.max(...entries.map(e => e.timestamp));
-    const buckets = Math.ceil((maxTime - minTime) / interval);
+    // Single pass for min/max to avoid Math.min(...entries.map(...))
+    // hitting the argument-spread cap on large series.
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const e of entries) {
+      if (e.timestamp < minTime) minTime = e.timestamp;
+      if (e.timestamp > maxTime) maxTime = e.timestamp;
+    }
+    const buckets = Math.max(1, Math.ceil((maxTime - minTime) / interval));
 
     const points: TimeSeriesPoint[] = [];
     
@@ -176,7 +191,7 @@ export class AnalyticsEngine {
     }
 
     return {
-      id: `report-${Date.now()}`,
+      id: `report-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       title,
       metrics,
       timeRange,

@@ -17,8 +17,19 @@ export class CLIEngine {
   private readonly maxHistory = 100;
 
   registerCommand(cmd: CLICommand): void {
+    // Warn loudly if a command name or alias would silently replace an
+    // existing registration. Previously duplicate aliases (e.g. 'h'
+    // used by both /help and /harness) were overwritten with no signal
+    // and the first command lost its alias.
+    if (this.commands.has(cmd.name) && this.commands.get(cmd.name)?.name !== cmd.name) {
+      console.warn(`[CLIEngine] Command /${cmd.name} overrides existing command /${this.commands.get(cmd.name)?.name}`);
+    }
     this.commands.set(cmd.name, cmd);
     for (const alias of cmd.aliases) {
+      const existing = this.commands.get(alias);
+      if (existing && existing.name !== cmd.name) {
+        console.warn(`[CLIEngine] Alias /${alias} for /${cmd.name} overrides existing /${existing.name}`);
+      }
       this.commands.set(alias, cmd);
     }
   }

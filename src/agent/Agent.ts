@@ -14,7 +14,7 @@ import {
   Vec2,
 } from '../types';
 import { BTNode } from './BehaviorTree';
-import { createAgentBehaviorTree } from './AgentBehaviors';
+import { createAgentBehaviorTree, clearIdleTimer } from './AgentBehaviors';
 import { TILE_SIZE } from '../spatial/Tilemap';
 
 export class Agent {
@@ -306,6 +306,9 @@ export class Agent {
       this.eventBus.off(EventType.AgentStateChanged, this.stateChangeHandler);
       this.stateChangeHandler = null;
     }
+    // Drop this agent's idle-timer entry from the module-level Map in
+    // AgentBehaviors so it doesn't accumulate across spawn/despawn cycles.
+    clearIdleTimer(this.id);
   }
 
   private getOccupiedCells(): GridCell[] {
