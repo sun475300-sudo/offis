@@ -114,6 +114,12 @@ export class AgentNegotiation {
     if (!negotiation || !negotiation.participants.includes(offererId)) {
       return null;
     }
+    // Only accept new offers while the negotiation is still live.
+    // Previously an already-accepted/rejected/cancelled negotiation could
+    // be mutated with additional offers.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return null;
+    }
 
     if (negotiation.offers.length >= this.rules.maxOffers) {
       return null;
@@ -133,6 +139,11 @@ export class AgentNegotiation {
     const negotiation = this.negotiations.get(negotiationId);
     if (!negotiation || !negotiation.currentOffer) {
       return { success: false, reason: 'Negotiation not found or no offer' };
+    }
+    // Don't resurrect a finished negotiation. acceptOffer previously
+    // overwrote resolution on cancelled/rejected negotiations too.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return { success: false, reason: `Negotiation is ${negotiation.status}` };
     }
 
     negotiation.status = 'accepted';
