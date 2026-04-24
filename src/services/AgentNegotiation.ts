@@ -164,6 +164,11 @@ export class AgentNegotiation {
     if (!negotiation) {
       return { success: false, reason: 'Negotiation not found' };
     }
+    // Same state guard as accept/makeOffer: don't overwrite an
+    // already-finalized negotiation.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return { success: false, reason: `Negotiation is ${negotiation.status}` };
+    }
 
     negotiation.status = 'rejected';
     negotiation.resolution = reason || 'Offer rejected';
@@ -177,6 +182,9 @@ export class AgentNegotiation {
   cancelNegotiation(negotiationId: string): boolean {
     const negotiation = this.negotiations.get(negotiationId);
     if (!negotiation) return false;
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return false;
+    }
 
     negotiation.status = 'cancelled';
     negotiation.updatedAt = Date.now();
