@@ -91,7 +91,16 @@ export class EventSourcing {
     if (this.handlers.has(type)) {
       const handler = this.handlers.get(type)!;
       const updated = handler(aggregate, event);
+      // Always bump the version + touch updatedAt so event.version values
+      // monotonically increase even if the handler forgets to do it.
+      updated.version = event.version;
+      updated.updatedAt = event.timestamp;
       this.aggregates.set(aggregateId, updated);
+    } else {
+      // No handler: still advance aggregate.version, otherwise every
+      // future emit re-uses version 1.
+      aggregate.version = event.version;
+      aggregate.updatedAt = event.timestamp;
     }
 
     this.pruneEvents(aggregateId);
