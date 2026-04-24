@@ -102,20 +102,30 @@ export class TestSuite {
     const timeoutPromise = new Promise<void>(resolve => setTimeout(resolve, config.duration * 1000));
     await Promise.race([Promise.allSettled(tasks), timeoutPromise]);
 
+    // Snapshot counters immediately after the race so any tasks that are
+    // still running in the background after a timeout don't inflate the
+    // result (or, worse, bleed into the next runStressTest invocation,
+    // which resets these same fields at start).
+    const tasksCompletedSnap = this.tasksCompleted;
+    const failedTasksSnap = this.failedTasks;
+    const githubCallsSnap = this.githubCalls;
+    const rateLimitHitsSnap = this.rateLimitHits;
+    const responseTimesSnap = [...this.responseTimes];
+
     const endMemory = (performance as any).memory?.usedJSHeapSize || 0;
     const duration = (Date.now() - this.startTime) / 1000;
 
     const result: StressTestResult = {
       totalAgents: config.agentCount,
-      totalTasksCompleted: this.tasksCompleted,
-      failedTasks: this.failedTasks,
-      avgResponseTime: this.responseTimes.length > 0 
-        ? this.responseTimes.reduce((a, b) => a + b, 0) / this.responseTimes.length 
+      totalTasksCompleted: tasksCompletedSnap,
+      failedTasks: failedTasksSnap,
+      avgResponseTime: responseTimesSnap.length > 0
+        ? responseTimesSnap.reduce((a, b) => a + b, 0) / responseTimesSnap.length
         : 0,
       peakMemory: Math.max(startMemory, endMemory),
       avgFps: 60,
-      githubApiCalls: this.githubCalls,
-      rateLimitHits: this.rateLimitHits,
+      githubApiCalls: githubCallsSnap,
+      rateLimitHits: rateLimitHitsSnap,
       duration,
       errors: [],
     };
