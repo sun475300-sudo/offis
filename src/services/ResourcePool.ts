@@ -109,8 +109,15 @@ export class ResourcePool {
     const resource = this.resources.get(allocation.resourceId);
     if (resource) {
       resource.used = Math.max(0, resource.used - allocation.amount);
-      if (resource.used === 0) {
+      // Reopen the resource for further allocations as soon as we're
+      // no longer saturated. Previously status only flipped back to
+      // 'available' when used hit 0, so a release that dropped a
+      // fully-saturated resource to partial usage still blocked new
+      // requests until the last byte was released.
+      if (resource.used < resource.capacity && resource.status === 'in_use') {
         resource.status = 'available';
+      }
+      if (resource.used === 0) {
         resource.ownerId = undefined;
       }
     }
