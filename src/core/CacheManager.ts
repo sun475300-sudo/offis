@@ -36,7 +36,10 @@ export class CacheManager<K extends string = string, V = unknown> {
   }
 
   set(key: K, value: V, ttl?: number): void {
-    if (this.cache.size >= this.config.maxSize) {
+    // Only evict when inserting a brand new key; updating an existing
+    // key doesn't grow the map, so previously we'd evict an unrelated
+    // entry on every re-set of an already-present key.
+    if (!this.cache.has(key) && this.cache.size >= this.config.maxSize) {
       this.evict();
     }
 
