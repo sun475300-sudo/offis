@@ -156,7 +156,11 @@ export class MessageRouter {
     }
 
     if (this.messageBuffer.length >= this.maxBufferSize) {
-      this.messageBuffer.shift();
+      const evicted = this.messageBuffer.shift();
+      // deliveryRecords was keyed by message.id with no cleanup hook; it
+      // grew in lockstep with every send() forever. When a message is
+      // evicted from the buffer, also drop its delivery records.
+      if (evicted) this.deliveryRecords.delete(evicted.id);
     }
     this.messageBuffer.push(msg);
 
