@@ -534,19 +534,26 @@ export class TestSuite {
 
   checkNotification(result: any): string[] {
     const alerts: string[] = [];
-    
-    if (result.failedTasks > this.notifications.find(n => n.type === 'failure')!.threshold) {
-      alerts.push(`⚠️ 실패 작업: ${result.failedTasks}개 (기준: ${this.notifications.find(n => n.type === 'failure')!.threshold})`);
+
+    // Lookup with optional-chaining; earlier code used `find(...)!` which
+    // crashed when loadNotifications() restored a persisted array that
+    // happened to be missing one of these entries. Also respect the
+    // `enabled` flag that was being ignored entirely.
+    const failure = this.notifications.find(n => n.type === 'failure');
+    if (failure?.enabled && result.failedTasks > failure.threshold) {
+      alerts.push(`⚠️ 실패 작업: ${result.failedTasks}개 (기준: ${failure.threshold})`);
     }
-    
-    if (result.duration * 1000 > this.notifications.find(n => n.type === 'slow')!.threshold) {
-      alerts.push(`🐌 느린 실행: ${result.duration.toFixed(1)}s (기준: ${this.notifications.find(n => n.type === 'slow')!.threshold}ms)`);
+
+    const slow = this.notifications.find(n => n.type === 'slow');
+    if (slow?.enabled && result.duration * 1000 > slow.threshold) {
+      alerts.push(`🐌 느린 실행: ${result.duration.toFixed(1)}s (기준: ${slow.threshold}ms)`);
     }
-    
-    if (result.rateLimitHits > this.notifications.find(n => n.type === 'rate-limit')!.threshold) {
-      alerts.push(`🚨 Rate Limit: ${result.rateLimitHits}회 (기준: ${this.notifications.find(n => n.type === 'rate-limit')!.threshold})`);
+
+    const rateLimit = this.notifications.find(n => n.type === 'rate-limit');
+    if (rateLimit?.enabled && result.rateLimitHits > rateLimit.threshold) {
+      alerts.push(`🚨 Rate Limit: ${result.rateLimitHits}회 (기준: ${rateLimit.threshold})`);
     }
-    
+
     return alerts;
   }
 
