@@ -491,12 +491,16 @@ export class ManagedAgentSessionManager {
     s.state = 'completed';
     s.tasksCompleted++;
     s.lastActiveAt = Date.now();
+    this.saveToPersistence();
   }
 
   /** 세션을 일시 중지합니다 */
   pauseSession(sessionId: string): void {
     const s = this.sessions.get(sessionId);
-    if (s) s.state = 'paused';
+    if (!s) return;
+    s.state = 'paused';
+    s.lastActiveAt = Date.now();
+    this.saveToPersistence();
   }
 
   /** 모든 세션 목록을 반환합니다 */
