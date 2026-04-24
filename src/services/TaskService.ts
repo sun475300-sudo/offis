@@ -3,6 +3,7 @@ import {
   EventType,
   GridCell,
   IEventBus,
+  ITilemap,
   LLMTaskDecomposition,
   TaskInfo,
   TaskPriority,
