@@ -89,7 +89,13 @@ export class ResourcePool {
     };
 
     resource.used += request.amount;
-    resource.status = 'in_use';
+    // Only flip to 'in_use' when the resource is actually saturated —
+    // findAvailableResources excludes anything that isn't 'available', so
+    // previously a 10-capacity resource with 3 used blocked a request for
+    // the other 7 even though capacity remained.
+    if (resource.used >= resource.capacity) {
+      resource.status = 'in_use';
+    }
     resource.ownerId = request.requesterId;
 
     this.allocations.set(allocation.id, allocation);
