@@ -171,10 +171,14 @@ export class ConsensusMechanism {
       }
 
       case 'unanimous': {
-        const allVoted = options.every(o => o.votes.length > 0);
-        if (!allVoted) return null;
-        const firstOptionId = options[0].votes[0];
-        return options.every(o => o.votes[0] === firstOptionId) ? options[0] : null;
+        // Unanimous consensus = every voter picked the same option. The
+        // old implementation checked "every option has at least one vote"
+        // (the opposite of unanimous) and then compared votes[0] across
+        // options, which is meaningless.
+        const totalVoters = Object.keys(decision.votes).length;
+        if (totalVoters === 0) return null;
+        const allAgreed = options.find(o => o.votes.length === totalVoters);
+        return allAgreed ?? null;
       }
 
       case 'weighted': {
