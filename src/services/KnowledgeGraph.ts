@@ -191,6 +191,12 @@ export class KnowledgeGraph {
       }
     }
 
+    // Remove this node from every other node's adjacency set; previously
+    // only the deleted node's own outgoing entry was cleared, leaving
+    // dangling incoming references that pointed at a non-existent node.
+    for (const neighbors of this.adjacencyList.values()) {
+      neighbors.delete(id);
+    }
     this.adjacencyList.delete(id);
     return this.nodes.delete(id);
   }
