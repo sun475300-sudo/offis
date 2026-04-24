@@ -28,6 +28,9 @@ export class LoadBalancer {
   };
   private healthCheckInterval: number | null = null;
   private listeners: Set<(endpoint: AgentEndpoint) => void> = new Set();
+  // Rotating cursor for round-robin selection. Indexed by sorted id to
+  // stay stable even as endpoints come and go.
+  private roundRobinCursor = 0;
 
   private constructor() {}
 
@@ -83,7 +86,13 @@ export class LoadBalancer {
   }
 
   private roundRobin(endpoints: AgentEndpoint[]): AgentEndpoint {
-    return endpoints[Math.floor(Math.random() * endpoints.length)];
+    // Previously this called Math.random — i.e. random selection, not
+    // round-robin. Sort so add/remove of other endpoints doesn't cause
+    // the cursor to jump unpredictably, then advance it.
+    const sorted = [...endpoints].sort((a, b) => a.agentId.localeCompare(b.agentId));
+    const idx = this.roundRobinCursor % sorted.length;
+    this.roundRobinCursor = (this.roundRobinCursor + 1) % Number.MAX_SAFE_INTEGER;
+    return sorted[idx];
   }
 
   private leastConnections(endpoints: AgentEndpoint[]): AgentEndpoint {
