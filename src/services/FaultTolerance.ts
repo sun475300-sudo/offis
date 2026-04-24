@@ -129,12 +129,19 @@ export class FaultTolerance {
   }
 
   private async executeWithTimeout<T>(fn: () => Promise<T>, timeout: number): Promise<T> {
-    return Promise.race([
-      fn(),
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
-      )
-    ]);
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        fn(),
+        new Promise<T>((_, reject) => {
+          timerId = setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout);
+        }),
+      ]);
+    } finally {
+      // Cancel the timeout once the race settles so a flood of short,
+      // successful operations doesn't leave pending timers behind.
+      if (timerId !== undefined) clearTimeout(timerId);
+    }
   }
 
   private recordFault(operationId: string, operationName: string, error: string): void {
