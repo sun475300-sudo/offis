@@ -349,7 +349,9 @@ export class PixelOfficeApp {
     agents.forEach((pair, idx) => {
       const target = confPos[idx] || confPos[0];
       pair.agent!.assignTask({
-        id: `debate-move-${Date.now()}`,
+        // Include agent id so the whole forEach doesn't hand out a single
+        // shared id (Date.now() resolves to the same ms for every element).
+        id: `debate-move-${sessionId}-${pair.agent!.id}`,
         description: '회의실 이동 (기술 토론)',
         requiredRole: pair.agent!.role,
         targetDesk: target,
