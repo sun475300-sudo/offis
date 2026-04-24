@@ -64,6 +64,11 @@ export class CacheManager<K extends string = string, V = unknown> {
 
     entry.hits++;
     this.stats.hits++;
+    // LRU: reinsert to move to the end of insertion order
+    if (this.config.evictionPolicy === 'lru') {
+      this.cache.delete(key);
+      this.cache.set(key, entry);
+    }
     return entry.value;
   }
 
@@ -94,13 +99,9 @@ export class CacheManager<K extends string = string, V = unknown> {
 
     switch (this.config.evictionPolicy) {
       case 'lru':
-        let minHits = Infinity;
-        for (const [key, entry] of this.cache) {
-          if (entry.hits < minHits) {
-            minHits = entry.hits;
-            keyToRemove = key;
-          }
-        }
+        // Oldest in Map insertion order is the least-recently-used entry,
+        // because get() re-inserts on access.
+        keyToRemove = this.cache.keys().next().value ?? null;
         break;
 
       case 'fifo':

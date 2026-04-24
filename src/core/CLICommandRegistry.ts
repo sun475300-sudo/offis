@@ -252,6 +252,10 @@ function registerTestCommands(ctx: CLIContext): void {
           const status = result.state === FeedbackLoopState.Complete ? 'success' : 'failed';
           toastManager[status === 'success' ? 'success' : 'error']('Feedback Loop', `루프 완료: ${result.iteration}회 반복`);
           chatSystem.sendSystemMessage(`피드백 루프 ${status}: ${result.iteration}회 반복`);
+        }).catch(err => {
+          const msg = err instanceof Error ? err.message : String(err);
+          toastManager.error('Feedback Loop', `루프 실패: ${msg}`);
+          chatSystem.sendSystemMessage(`피드백 루프 오류: ${msg}`);
         });
 
         return `Feedback loop started: ${loop.id}`;
