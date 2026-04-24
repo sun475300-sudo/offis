@@ -148,7 +148,10 @@ export class DistributedTracing {
     if (this.spans.size > this.maxSpans) {
       const sorted = Array.from(this.spans.values())
         .sort((a, b) => a.startTime - b.startTime);
-      for (let i = 0; i < this.spans.size - this.maxSpans; i++) {
+      // Snapshot the eviction count; the previous loop bound decreased as
+      // we deleted, so only half the targeted entries were removed.
+      const toRemove = this.spans.size - this.maxSpans;
+      for (let i = 0; i < toRemove; i++) {
         this.spans.delete(sorted[i].id);
       }
     }

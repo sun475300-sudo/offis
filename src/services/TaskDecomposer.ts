@@ -170,7 +170,9 @@ export class TaskDecomposer {
 
   private checkDependencies(decomposition: TaskDecomposition): void {
     for (const subTask of decomposition.subTasks) {
-      if (subTask.status !== 'pending') continue;
+      // Re-evaluate both pending and previously-blocked tasks; otherwise a
+      // task whose deps complete later never leaves the blocked state.
+      if (subTask.status !== 'pending' && subTask.status !== 'blocked') continue;
 
       const allDepsCompleted = subTask.dependencies.every(depId => {
         const dep = decomposition.subTasks.find(s => s.id === depId);
@@ -202,7 +204,10 @@ export class TaskDecomposer {
     if (this.decompositions.size > this.maxHistory) {
       const sorted = Array.from(this.decompositions.values())
         .sort((a, b) => a.createdAt - b.createdAt);
-      for (let i = 0; i < this.decompositions.size - this.maxHistory; i++) {
+      // Snapshot the eviction count; the previous loop bound decreased as
+      // we deleted, so only half the targeted entries were removed.
+      const toRemove = this.decompositions.size - this.maxHistory;
+      for (let i = 0; i < toRemove; i++) {
         this.decompositions.delete(sorted[i].id);
       }
     }
