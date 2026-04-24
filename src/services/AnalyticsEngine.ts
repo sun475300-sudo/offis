@@ -119,8 +119,14 @@ export class AnalyticsEngine {
       return { name, points: [], aggregation };
     }
 
-    const minTime = Math.min(...entries.map(e => e.timestamp));
-    const maxTime = Math.max(...entries.map(e => e.timestamp));
+    // Single pass for min/max to avoid Math.min(...entries.map(...))
+    // hitting the argument-spread cap on large series.
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const e of entries) {
+      if (e.timestamp < minTime) minTime = e.timestamp;
+      if (e.timestamp > maxTime) maxTime = e.timestamp;
+    }
     const buckets = Math.max(1, Math.ceil((maxTime - minTime) / interval));
 
     const points: TimeSeriesPoint[] = [];
