@@ -59,6 +59,7 @@ export class DebateManager {
   private sessions: Map<string, DebateSession> = new Map();
   private tokenUsage: number = 0;
   private debateDelay: number = 300;
+  private readonly maxSessions = 50;
 
   async startDebate(code: string, projectName: string): Promise<DebateSession> {
     const sessionId = `debate-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
@@ -74,6 +75,17 @@ export class DebateManager {
     };
 
     this.sessions.set(sessionId, session);
+    // Evict oldest sessions so long-running processes don't accumulate
+    // every debate forever. Map iteration order is insertion order.
+    if (this.sessions.size > this.maxSessions) {
+      const toDrop = this.sessions.size - this.maxSessions;
+      const iter = this.sessions.keys();
+      for (let i = 0; i < toDrop; i++) {
+        const key = iter.next().value;
+        if (key === undefined) break;
+        this.sessions.delete(key);
+      }
+    }
     return session;
   }
 
