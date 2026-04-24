@@ -115,10 +115,15 @@ export class StatePersistence {
   }
 
   createSnapshot(metadata?: Record<string, unknown>): StateSnapshot {
+    // Deep-clone states so future save()s don't retroactively mutate
+    // the snapshot (save() updates the same PersistedState object in
+    // place when an id already exists).
+    const snappedStates: PersistedState[] = Array.from(this.storage.values())
+      .map(s => JSON.parse(JSON.stringify(s)) as PersistedState);
     const snapshot: StateSnapshot = {
       id: `snapshot-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       timestamp: Date.now(),
-      states: Array.from(this.storage.values()),
+      states: snappedStates,
       metadata
     };
 
