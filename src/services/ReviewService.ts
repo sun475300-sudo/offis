@@ -263,11 +263,12 @@ export class ReviewService {
       score -= 2;
     }
 
-    if (code.length > 5000) {
+    const lineCount = code.split(/\r?\n/).length;
+    if (lineCount > 500) {
       findings.push({
         severity: 'low',
         category: 'Code Size',
-        description: '파일이 5000줄을 초과합니다.',
+        description: `파일이 ${lineCount}줄입니다 (500줄 초과).`,
         suggestion: '코드 스플리팅을 고려하세요.',
       });
       score -= 3;

@@ -89,6 +89,7 @@ export class AgentLearning {
         type,
         successCount: 0,
         totalCount: 0,
+        feedbackCount: 0,
         avgFeedback: 0,
         lastUpdated: Date.now()
       });
@@ -100,9 +101,14 @@ export class AgentLearning {
       model.successCount = (model.successCount as number) + 1;
     }
     if (record.feedback !== undefined) {
+      // Track feedbackCount independently; previously the running average
+      // used totalCount, so records submitted without feedback still
+      // "diluted" the average to zero.
+      const prevFeedbackCount = (model.feedbackCount as number) ?? 0;
+      const newFeedbackCount = prevFeedbackCount + 1;
       const currentAvg = model.avgFeedback as number;
-      const count = model.totalCount as number;
-      model.avgFeedback = (currentAvg * (count - 1) + record.feedback) / count;
+      model.avgFeedback = (currentAvg * prevFeedbackCount + record.feedback) / newFeedbackCount;
+      model.feedbackCount = newFeedbackCount;
     }
     model.lastUpdated = Date.now();
   }
