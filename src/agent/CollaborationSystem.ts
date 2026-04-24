@@ -115,9 +115,13 @@ export class CollaborationSystem {
       });
     }
 
-    this.eventBus.emit(EventType.AgentStateChanged, {
+    // Previously emitted AgentStateChanged with a meeting-shaped payload,
+    // which the AppEventHandlers listener then silently dropped because
+    // agentId was undefined. Use a dedicated event so observers that
+    // actually care about meetings can subscribe.
+    this.eventBus.emit(EventType.MeetingStarted, {
       meetingId,
-      type: 'meeting_started',
+      type,
       participants: participantIds,
     });
 
