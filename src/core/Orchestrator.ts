@@ -135,11 +135,13 @@ export class Orchestrator {
         console.warn(`[Orchestrator] Task "${task.description}" stalled — resetting to Pending`);
         task.status = TaskStatus.Pending;
         task.assignedAgentId = null;
-        this.eventBus.emit(EventType.TaskFailed, { 
-          taskId: task.id, 
-          agentId: 'system', 
-          reason: 'task_timeout' 
-        });
+        task.lastPulse = now; // reset watchdog so we don't re-trigger next tick
+        // Previously also emitted TaskFailed here, but this class's own
+        // TaskFailed handler runs markFailed(taskId), which flips the
+        // status we just set back to Pending straight to Failed. The
+        // task then never gets retried. Skip the emit; the stale reset
+        // is enough, and dispatchPendingTasks on the next interval
+        // picks up this now-Pending task for reassignment.
       }
     }
   }
