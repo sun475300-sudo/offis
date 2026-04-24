@@ -234,7 +234,15 @@ export class RunnerManager {
       loop.iteration = i + 1;
       loop.state = FeedbackLoopState.RunningTest;
 
-      const availableRunner = this.getAllRunners().find(r => r.status === 'idle');
+      // Also accept runners currently in 'error' — submitTest marks
+      // them so after each failed test the runner sits in 'error'.
+      // Without this, a single failure killed the whole feedback loop
+      // because the next iteration couldn't find an 'idle' runner.
+      let availableRunner = this.getAllRunners().find(r => r.status === 'idle');
+      if (!availableRunner) {
+        availableRunner = this.getAllRunners().find(r => r.status === 'error');
+        if (availableRunner) availableRunner.status = 'idle';
+      }
       if (!availableRunner) {
         loop.state = FeedbackLoopState.Failed;
         break;
