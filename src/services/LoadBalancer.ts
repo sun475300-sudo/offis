@@ -125,6 +125,9 @@ export class LoadBalancer {
       }
     } else {
       endpoint.avgResponseTime = (endpoint.avgResponseTime * 0.9) + (responseTime * 0.1);
+      // Decay failure count on success so endpoints can recover instead of
+      // being marked unhealthy forever.
+      endpoint.failedRequests = Math.max(0, endpoint.failedRequests - 1);
       if (endpoint.status === 'degraded' && endpoint.failedRequests < this.config.maxFailures) {
         endpoint.status = 'healthy';
       }

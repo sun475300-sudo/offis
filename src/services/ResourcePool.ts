@@ -123,14 +123,14 @@ export class ResourcePool {
   private processPendingRequests(): void {
     if (this.pendingRequests.length === 0) return;
 
-    const stillPending: ResourceRequest[] = [];
-    for (const request of this.pendingRequests) {
-      const allocation = this.allocate(request);
-      if (!allocation) {
-        stillPending.push(request);
-      }
+    // Snapshot + clear before iterating so allocate() re-queuing a failed
+    // request only does so once. Previously, a failed allocate() re-pushed
+    // onto the same array we were iterating and the item was double-queued.
+    const queued = this.pendingRequests;
+    this.pendingRequests = [];
+    for (const request of queued) {
+      this.allocate(request);
     }
-    this.pendingRequests = stillPending;
   }
 
   getResource(resourceId: string): Resource | undefined {
