@@ -145,7 +145,7 @@ export class CollaborationSystem {
 
     // Pair works at the driver's desk
     const location = driver.getSnapshot().gridCell;
-    const pairId = `pair-${Date.now()}`;
+    const pairId = `pair-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
     const session: PairSession = {
       id: pairId,

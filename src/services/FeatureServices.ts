@@ -63,7 +63,7 @@ export class AgentPersonaSystem {
   }
 
   addPersona(persona: Omit<AgentPersona, 'id'>): string {
-    const id = `persona-${Date.now()}`;
+    const id = `persona-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.personas.push({ ...persona, id });
     return id;
   }
@@ -135,7 +135,9 @@ export class CodeSnippetManager {
   private maxSnippets = 200;
 
   add(name: string, language: string, code: string, tags: string[] = []): string {
-    const id = `snippet-${Date.now()}`;
+    // Date.now() by itself collides when multiple snippets are added in
+    // the same millisecond — add a random suffix so ids are unique.
+    const id = `snippet-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.snippets.push({ id, name, language, code, tags, createdAt: Date.now(), usageCount: 0 });
     
     if (this.snippets.length > this.maxSnippets) {
@@ -200,7 +202,7 @@ export class ThemeManager {
   }
 
   addCustomTheme(name: string, colors: Record<string, string>): string {
-    const id = `theme-${Date.now()}`;
+    const id = `theme-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.themes.push({ name, colors, isDark: true });
     return id;
   }
@@ -273,7 +275,7 @@ export class CollaborationHub {
   private activeSessions: Map<string, { participants: string[]; startedAt: number; type: string; messages: { sender: string; content: string; timestamp: number }[] }> = new Map();
 
   createSession(type: string, participants: string[]): string {
-    const id = `session-${Date.now()}`;
+    const id = `session-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.activeSessions.set(id, { participants, startedAt: Date.now(), type, messages: [] });
     return id;
   }

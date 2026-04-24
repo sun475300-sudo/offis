@@ -372,7 +372,7 @@ export class TestSuite {
   private schedules: { id: string; name: string; interval: number; lastRun: number; enabled: boolean }[] = [];
 
   addSchedule(name: string, intervalMinutes: number): string {
-    const id = `schedule-${Date.now()}`;
+    const id = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.schedules.push({
       id,
       name,
@@ -432,7 +432,7 @@ export class TestSuite {
   ];
 
   addCustomScenario(name: string, config: StressTestConfig, description: string): string {
-    const id = `custom-${Date.now()}`;
+    const id = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.customScenarios.push({ id, name, config, description });
     this.saveCustomScenarios();
     return id;
@@ -677,7 +677,7 @@ export class TestSuite {
   private templates: { id: string; name: string; config: StressTestConfig; description: string; createdAt: number }[] = [];
 
   saveTemplate(name: string, config: StressTestConfig, description: string = ''): string {
-    const id = `template-${Date.now()}`;
+    const id = `template-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.templates.push({ id, name, config, description, createdAt: Date.now() });
     this.saveTemplates();
     return id;
@@ -716,7 +716,7 @@ export class TestSuite {
   private webhooks: { id: string; url: string; events: string[]; enabled: boolean }[] = [];
 
   addWebhook(url: string, events: string[]): string {
-    const id = `webhook-${Date.now()}`;
+    const id = `webhook-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.webhooks.push({ id, url, events, enabled: true });
     this.saveWebhooks();
     return id;

@@ -61,7 +61,7 @@ export class DebateManager {
   private debateDelay: number = 300;
 
   async startDebate(code: string, projectName: string): Promise<DebateSession> {
-    const sessionId = `debate-${Date.now()}`;
+    const sessionId = `debate-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     const session: DebateSession = {
       id: sessionId,
       code,

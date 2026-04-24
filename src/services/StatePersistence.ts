@@ -116,7 +116,7 @@ export class StatePersistence {
 
   createSnapshot(metadata?: Record<string, unknown>): StateSnapshot {
     const snapshot: StateSnapshot = {
-      id: `snapshot-${Date.now()}`,
+      id: `snapshot-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       timestamp: Date.now(),
       states: Array.from(this.storage.values()),
       metadata
