@@ -90,11 +90,15 @@ export class TaskQueueManager {
       id, name, priority, status: 'pending', createdAt: Date.now(), estimatedDuration,
     });
     this.queue.sort((a, b) => b.priority - a.priority);
-    
+
     if (this.queue.length > this.maxSize) {
-      this.queue = this.queue.slice(-this.maxSize);
+      // Queue is sorted priority DESC — keep the top maxSize (front of
+      // the array). The old slice(-maxSize) kept the tail, i.e. the
+      // lowest-priority items, and silently dropped the most important
+      // work whenever the queue overflowed.
+      this.queue = this.queue.slice(0, this.maxSize);
     }
-    
+
     return id;
   }
 
