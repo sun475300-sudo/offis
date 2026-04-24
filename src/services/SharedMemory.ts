@@ -122,12 +122,16 @@ export class SharedMemory {
   }
 
   search(keywords: string[], limit = 10): MemoryEntry[] {
-    const query: MemoryQuery = { limit };
+    // Query without an upfront limit so the keyword filter actually sees
+    // every entry; the cap is applied once at the end after de-dup and
+    // access-count ranking. Previously `query({ limit })` pre-trimmed to
+    // the top-N by recency and the keyword filter missed older matches.
+    const allEntries = this.query({});
     const results: MemoryEntry[] = [];
 
     for (const keyword of keywords) {
       const keywordLower = keyword.toLowerCase();
-      const matches = this.query(query).filter(e => {
+      const matches = allEntries.filter(e => {
         const contentStr = JSON.stringify(e.content).toLowerCase();
         return contentStr.includes(keywordLower) || e.tags.some(t => t.toLowerCase().includes(keywordLower));
       });
