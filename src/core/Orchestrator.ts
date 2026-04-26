@@ -1,6 +1,7 @@
 import {
   EventType,
   IEventBus,
+  ITilemap,
   TaskInfo,
   TaskStatus,
 } from '../types';

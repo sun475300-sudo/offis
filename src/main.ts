@@ -32,7 +32,7 @@ import { Pathfinder } from './spatial/Pathfinder';
 import { TilemapRenderer } from './rendering/TilemapRenderer';
 import { AgentRenderer } from './rendering/AgentRenderer';
 import { CameraController } from './rendering/CameraController';
-import { GridRenderer } from './rendering/GridRenderer';
+
 import { ParticleSystem } from './rendering/ParticleSystem';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
@@ -59,32 +59,32 @@ const MAP_WIDTH = 60;
 const MAP_HEIGHT = 40;
 
 export class PixelOfficeApp {
-  private app: PIXI.Application;
-  private eventBus: EventBus;
-  private cliEngine: CLIEngine;
-  private orchestrator: Orchestrator;
-  private agentManager: AgentManager;
-  private tilemap: Tilemap;
-  private pathfinder: Pathfinder;
-  
-  private tilemapRenderer: TilemapRenderer;
-  private agentRenderer: AgentRenderer;
-  private camera: CameraController;
-  private particleSystem: ParticleSystem;
-  private speechBubbleRenderer: SpeechBubbleRenderer;
-  private taskProgressRenderer: TaskProgressRenderer;
-  private meetingRoomRenderer: MeetingRoomRenderer;
+  private app!: PIXI.Application;
+  private eventBus!: EventBus;
+  private cliEngine!: CLIEngine;
+  private orchestrator!: Orchestrator;
+  private agentManager!: AgentManager;
+  private tilemap!: Tilemap;
+  private pathfinder!: Pathfinder;
 
-  private soundManager: SoundManager;
-  private toastManager: ToastManager;
-  private hud: HUDManager;
-  private chatSystem: ChatSystem;
-  private collaborationSystem: CollaborationSystem;
-  private debateManager: DebateManager;
-  private runnerManager: RunnerManager;
-  private gitHubService: GitHubService;
+  private tilemapRenderer!: TilemapRenderer;
+  private agentRenderer!: AgentRenderer;
+  private camera!: CameraController;
+  private particleSystem!: ParticleSystem;
+  private speechBubbleRenderer!: SpeechBubbleRenderer;
+  private taskProgressRenderer!: TaskProgressRenderer;
+  private meetingRoomRenderer!: MeetingRoomRenderer;
 
-  private rootContainer: PIXI.Container;
+  private soundManager!: SoundManager;
+  private toastManager!: ToastManager;
+  private hud!: HUDManager;
+  private chatSystem!: ChatSystem;
+  private collaborationSystem!: CollaborationSystem;
+  private debateManager!: DebateManager;
+  private runnerManager!: RunnerManager;
+  private gitHubService!: GitHubService;
+
+  private rootContainer!: PIXI.Container;
 
   constructor() {
     this.initSystems();
@@ -99,18 +99,20 @@ export class PixelOfficeApp {
     this.tilemap = new Tilemap(MAP_WIDTH, MAP_HEIGHT);
     this.pathfinder = new Pathfinder(this.tilemap);
     
-    // ⚠️ FIXED: Corrected parameter order for AgentManager and Orchestrator
+    // BUG FIX: debateManager/runnerManager must be initialized before Orchestrator
     this.gitHubService = new GitHubService();
     this.agentManager = new AgentManager(this.tilemap, this.pathfinder, this.eventBus);
+    this.debateManager = new DebateManager();
+    this.runnerManager = new RunnerManager();
     this.orchestrator = new Orchestrator(this.agentManager, this.eventBus, this.tilemap, this.gitHubService, this.debateManager);
-    
+
     this.cliEngine = new CLIEngine();
     this.soundManager = new SoundManager();
     this.toastManager = new ToastManager();
-    this.chatSystem = new ChatSystem(this.eventBus);
-    this.collaborationSystem = new CollaborationSystem(this.eventBus, this.agentManager, this.tilemap);
-    this.debateManager = new DebateManager(this.eventBus);
-    this.runnerManager = new RunnerManager(this.eventBus);
+    // BUG FIX: ChatSystem has no-arg constructor
+    this.chatSystem = new ChatSystem();
+    // BUG FIX: CollaborationSystem takes (agentManager, eventBus) — fixed arg order
+    this.collaborationSystem = new CollaborationSystem(this.agentManager, this.eventBus);
 
     // Start Orchestrator's automatic assignment loop
     this.orchestrator.startDispatchLoop(2000);
@@ -349,6 +351,7 @@ export class PixelOfficeApp {
 
     agents.forEach((pair, idx) => {
       const target = confPos[idx] || confPos[0];
+      // BUG FIX: TaskInfo requires assignedAgentId, progress, parentTaskId, createdAt
       pair.agent!.assignTask({
         id: `debate-move-${Date.now()}`,
         description: '회의실 이동 (기술 토론)',
@@ -356,7 +359,11 @@ export class PixelOfficeApp {
         targetDesk: target,
         priority: TaskPriority.High,
         estimatedDuration: 1,
-        status: TaskStatus.Pending
+        status: TaskStatus.Pending,
+        assignedAgentId: null,
+        progress: 0,
+        parentTaskId: null,
+        createdAt: Date.now(),
       });
     });
 

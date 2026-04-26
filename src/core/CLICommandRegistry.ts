@@ -13,7 +13,7 @@ import { RunnerManager, FeedbackLoopState } from '../debate/RunnerManager';
 import { GitHubService } from '../services/GitHubService';
 import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
 import { testSuite, StressTestConfig } from '../services/TestSuite';
-import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub, systemReport } from '../services/FeatureServices';
+import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub } from '../services/FeatureServices';
 import { getHarness, getHarnessSummary, buildSystemPrompt, sessionManager } from '../services/AgentHarness';
 
 export interface CLIContext {
