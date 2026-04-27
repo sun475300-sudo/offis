@@ -5,3 +5,18 @@ release/
 *.local
 .DS_Store
 out/
+
+# Standardized common patterns (added 2026-04-27)
+build/
+*.log
+*.bak
+*.bak.*
+git_push_*.log
+_*.bat
+_*.log
+_*.txt
+_*.ps1
+.idea/
+.vscode/
+Thumbs.db
+*.tsbuildinfo
