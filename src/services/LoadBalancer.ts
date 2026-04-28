@@ -164,6 +164,11 @@ export class LoadBalancer {
           const isHealthy = await checkFn(endpoint);
           endpoint.lastCheck = Date.now();
           if (isHealthy) {
+            // Decay the failure counter on each healthy probe so an
+            // endpoint that had transient failures can recover. Previously
+            // status stayed 'degraded' forever as long as failedRequests
+            // was ever > 0.
+            endpoint.failedRequests = Math.max(0, endpoint.failedRequests - 1);
             endpoint.status = endpoint.failedRequests > 0 ? 'degraded' : 'healthy';
           } else {
             endpoint.failedRequests++;
@@ -173,7 +178,16 @@ export class LoadBalancer {
           }
           this.notifyListeners(endpoint);
         } catch {
-          endpoint.status = 'unhealthy';
+          // Match the !isHealthy branch — increment failure counter so
+          // transient throws accumulate toward the unhealthy threshold
+          // instead of flipping straight to unhealthy from a single
+          // hiccup.
+          endpoint.failedRequests++;
+          if (endpoint.failedRequests >= this.config.maxFailures) {
+            endpoint.status = 'unhealthy';
+          }
+          endpoint.lastCheck = Date.now();
+          this.notifyListeners(endpoint);
         }
       }
     }, this.config.healthCheckInterval);
