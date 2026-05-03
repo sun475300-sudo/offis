@@ -1,149 +1,160 @@
-# Offis AI 에이전트 운영 가이드
+# PIXEL OFFICE — AI 에이전트 운영 가이드
 
-> **기반**: [AI 직원 5명 채용했습니다… 인건비 0원 실화입니다 (Manus Skills 자동화 세팅 공개)](https://youtu.be/kAwsc5oc2Og)  
-> **핵심 개념**: 반복 작업을 한 번만 수행하고 → AI 스킬로 패키징 → 무한 재사용
-
----
-
-## 🏢 Offis AI 직원 소개
-
-Offis 시스템에는 5명의 AI 에이전트(직원)가 상주합니다. 각 에이전트는 전문 역할을 맡아 픽셀 오피스 내 자신의 자리에서 대기하며, 태스크가 배정되면 즉시 작업을 시작합니다.
-
-| 에이전트 | 역할 | 전문 분야 | 오피스 위치 |
-|---------|------|---------|-----------|
-| 🗂️ **비서** (Secretary) | 조율 & 위임 | 태스크 분해, 일정 관리, 보고 | PM 데스크 (17,15) |
-| 🔍 **리서처** (Researcher) | 정보 수집 | 시장 조사, 경쟁사 분석, GitHub 리서치 | QA 데스크 (3,11) |
-| 📊 **분석가** (Analyst) | 데이터 분석 | 인사이트 도출, KPI, SWOT | Backend 데스크 (9,15) |
-| ✍️ **작성자** (Writer) | 콘텐츠 생성 | 블로그, SNS, 랜딩 페이지, 제안서 | Frontend 데스크 (3,15) |
-| ⚙️ **운영자** (Operator) | 자동화 & 배포 | 스크립트, 스킬 패키징, GitHub 운영 | DevOps 데스크 (9,11) |
-| 🎨 **디자이너** (Designer) | UI/UX 설계 | 디자인 토큰, 컴포넌트 스펙, 랜딩 레이아웃 | Designer 데스크 (17,9) |
-| 💻 **코더** (Coder) | 코드 구현 & 리뷰 | TypeScript, PIXI.js, PR 리뷰, 리팩토링 | Frontend 데스크 (5,15) |
+> **Manus Skills 기반 9 에이전트 + 6 스킬 자동화 시스템**
+> 영상 [AI 직원 5명 채용했습니다](https://youtu.be/kAwsc5oc2Og) 기반 구현 + 확장
 
 ---
 
-## 🎯 Manus Skills 핵심 원리
+## 📋 9 에이전트 매트릭스
 
-영상에서 소개한 핵심 철학:
+| # | 에이전트 | 파일 | 핵심 역할 | 주요 도구 |
+|---|---------|------|----------|----------|
+| 1 | **비서 (Secretary)** | `secretary.md` | 태스크 분해·위임·조율 | 모든 에이전트 오케스트레이션 |
+| 2 | **리서처 (Researcher)** | `researcher.md` | 시장조사·기술리서치·PR분석 | WebSearch, WebFetch |
+| 3 | **분석가 (Analyst)** | `analyst.md` | 인사이트·KPI·SWOT·데이터분석 | Read, Write |
+| 4 | **작성자 (Writer)** | `writer.md` | 블로그·SNS·랜딩페이지·제안서 | Write |
+| 5 | **운영자 (Operator)** | `operator.md` | 자동화·스킬패키징·배포·GitHub | Bash (전체) |
+| 6 | **디자이너 (Designer)** | `designer.md` | 디자인토큰·컴포넌트스펙·레이아웃 | Read, Write, WebFetch |
+| 7 | **코더 (Coder)** | `coder.md` | TypeScript·PIXI.js·타입수정·리팩터링 | Read, Edit, Bash |
+| 8 | **테스터 (Tester)** | `tester.md` | 테스트케이스 생성·커버리지 보강 | Read, Write, Bash |
+| 9 | **리뷰어 (Reviewer)** | `reviewer.md` | 코드리뷰·보안감사·성능분석 | Read, Bash |
+
+---
+
+## 🛠️ 6 재사용 스킬 라이브러리
+
+| # | 스킬 | 파일 | 파이프라인 | 출력물 |
+|---|------|------|-----------|-------|
+| 1 | **video-content-essencer** | `skills/video-content-essencer.md` | 운영자→분석가→작성자 | Shorts스크립트·블로그·LinkedIn·SNS·SEO |
+| 2 | **proposal-generator** | `skills/proposal-generator.md` | 리서처→분석가→작성자 | 8섹션 사업제안서 |
+| 3 | **landing-page-generator** | `skills/landing-page-generator.md` | 분석가→작성자→운영자 | 즉시배포 HTML |
+| 4 | **sns-content-generator** | `skills/sns-content-generator.md` | 분석가→작성자→운영자 | 6플랫폼 최적화 포스팅 |
+| 5 | **changelog-generator** | `skills/changelog-generator.md` | 운영자→분석가→작성자→운영자 | CHANGELOG.md |
+| 6 | **release-notes-generator** | `skills/release-notes-generator.md` | 운영자→분석가→작성자→운영자 | 릴리즈노트 (GitHub+SNS) |
+
+---
+
+## 🔑 Manus Skill 원칙
 
 ```
-기존 방식:  요청 → AI → 결과 → (다음에 또 처음부터)
-                                         ↑ 비효율!
+"한 번 잘 하면 → 스킬로 패키징 → 언제든 재사용"
 
-Manus 방식: 요청 → AI → 결과
-                    ↓
-              [스킬로 저장]
-                    ↓
-              다음에: 스킬 호출 → 즉시 결과 (재설명 불필요)
+일반 AI 사용법: 매번 처음부터 프롬프트 작성
+Manus Skills:   /skill [이름] → 즉시 전문가 워크플로 실행
 ```
 
-**적용 기준**: 같은 작업을 3번 이상 반복하면 스킬로 패키징할 가치가 있다.
+**스킬 vs 에이전트 차이:**
+- **에이전트** = 전문 역할을 가진 AI 직원 (항상 대기)
+- **스킬** = 여러 에이전트가 순서대로 실행하는 표준 워크플로 (재사용 패키지)
 
 ---
 
-## 📦 내장 스킬 (Manus Skills → Offis 구현)
+## 🚀 5가지 자동화 워크플로 시나리오
 
-영상에서 시연된 4개 스킬을 Offis에 이식했습니다:
+### 시나리오 1: 신규 제품 런칭 캠페인
+```
+트리거: "새 AI 기능 런칭 마케팅 해줘"
 
-### 스킬 1: 비디오 콘텐츠 에센서
-**위치**: `.claude/agents/skills/video-content-essencer.md`  
-**기능**: YouTube 영상 1개 → 블로그 + Shorts 대본 + LinkedIn + SNS 캡션 + SEO 태그 동시 생성  
-**CLI**: `/skill video-essencer --url "https://youtu.be/..."`
+비서 → 작업 분해:
+  ├─ 리서처: 경쟁사 3곳 포지셔닝 조사
+  ├─ 분석가: SWOT + 타겟 페르소나 정의
+  ├─ 작성자: /skill landing-page-generator (랜딩페이지)
+  ├─ 작성자: /skill sns-content-generator (6플랫폼 포스팅)
+  └─ 운영자: 파일 패키징 + git push
 
-### 스킬 2: 프로포잘 제너레이터
-**위치**: `.claude/agents/skills/proposal-generator.md`  
-**기능**: 주제 입력 → 시장 분석 + 경쟁사 비교 + 포지셔닝 + KPI + 가격 정책 포함 완성형 제안서  
-**CLI**: `/skill proposal --topic "제품명" --audience "목표 고객"`
+소요: ~20분 | 산출물: 랜딩페이지 HTML + SNS 6종 + 포지셔닝 분석
+```
 
-### 스킬 3: 랜딩 페이지 제너레이터
-**위치**: `.claude/agents/skills/landing-page-generator.md`  
-**기능**: 주제만 입력 → 즉시 배포 가능한 완성형 HTML 랜딩 페이지 (반응형, 애니메이션 포함)  
-**CLI**: `/skill landing --topic "제품명" --theme dark`
+### 시나리오 2: 주간 콘텐츠 보고서
+```
+트리거: "이번 주 유튜브 영상 콘텐츠로 만들어줘" (URL 제공)
 
-### 스킬 4: SNS 콘텐츠 제너레이터
-**위치**: `.claude/agents/skills/sns-content-generator.md`  
-**기능**: 콘텐츠/URL 입력 → 6개 플랫폼 최적화 콘텐츠 일괄 생성  
-**CLI**: `/skill sns --source "URL 또는 주제"`
+운영자 → yt-dlp로 자막 추출
+분석가 → 핵심 인사이트 5개 추출
+작성자 → Shorts 3개 + 블로그 1500자 + LinkedIn + SNS 5종
+운영자 → /skill changelog-generator (콘텐츠 변경 기록)
+
+소요: ~15분 | 산출물: 5종 콘텐츠 패키지
+```
+
+### 시나리오 3: 경쟁사 모니터링
+```
+트리거: "경쟁사 A, B, C 이번 달 동향 분석해줘"
+
+비서 → 3개 병렬 서브태스크 생성
+  ├─ 리서처: 각 경쟁사 최신 블로그/PR/채용공고 수집
+  ├─ 분석가: 기능 비교 매트릭스 + 시장 트렌드 추출
+  └─ 작성자: /skill proposal-generator (대응 전략 제안서)
+
+소요: ~25분 | 산출물: 경쟁 분석 보고서 + 대응 전략
+```
+
+### 시나리오 4: 코드 릴리즈 자동화
+```
+트리거: "v1.2.0 릴리즈 준비해줘"
+
+코더 → tsc --noEmit 타입 검증
+테스터 → npm test (38+ 테스트 통과 확인)
+리뷰어 → git diff main..release 코드 리뷰
+운영자 → /skill changelog-generator
+운영자 → /skill release-notes-generator --version v1.2.0
+운영자 → git tag v1.2.0 && git push origin v1.2.0
+
+소요: ~10분 | 산출물: 검증된 릴리즈 + CHANGELOG + 릴리즈노트
+```
+
+### 시나리오 5: 장애 대응 + 사후 분석
+```
+트리거: "빌드가 깨졌어, 빠르게 분석해줘"
+
+코더 → git log --oneline -5 (최근 변경 확인)
+코더 → tsc --noEmit (타입 오류 목록)
+테스터 → npm test (실패 케이스 격리)
+리뷰어 → 원인 코드 분석 + 수정안 제시
+운영자 → 핫픽스 커밋 + 태그
+
+소요: ~5분 | 산출물: 버그 수정 + 원인 분석 리포트
+```
 
 ---
 
-## 🚀 Offis 시작하기
+## ⚡ 에이전트 빠른 참조
 
-### 1. 개발 환경 실행
 ```bash
-cd E:\GitHub\offis
-npm install
-npm run dev
-```
+# 비서에게 큰 작업 위임
+"비서야, [복잡한 목표] 달성해줘. 필요한 에이전트 조율해줘"
 
-### 2. CLI 기본 명령어
+# 특정 에이전트 직접 호출
+"리서처야, [주제] 최신 동향 조사해줘"
+"분석가야, 이 데이터에서 인사이트 뽑아줘"
+"작성자야, 이 내용으로 블로그 1500자 써줘"
+"운영자야, 이 작업을 스킬로 패키징해줘"
+"디자이너야, AgentCard 컴포넌트 스펙 잡아줘"
+"코더야, 이 TypeScript 타입 오류 고쳐줘"
+"테스터야, TaskService 테스트 케이스 만들어줘"
+"리뷰어야, 이 PR diff 리뷰해줘"
 
-| 명령어 | 설명 |
-|--------|------|
-| `help` | 전체 명령어 목록 |
-| `/agents` | 현재 에이전트 상태 조회 |
-| `/tasks` | 태스크 큐 확인 |
-| `/github <owner>/<repo> <PR번호>` | GitHub PR 워크플로 시작 |
-| `/debate <세션ID>` | 기술 토론 세션 실행 |
-| `/skill <스킬명> [옵션]` | 스킬 직접 실행 |
-
-### 3. 자연어 명령 (CLI 없이)
-입력창에 자유롭게 입력하면 Orchestrator가 자동으로 적합한 에이전트에게 분배합니다:
-```
-"신규 SaaS 제품 마케팅 콘텐츠 패키지 만들어줘"
-→ 비서가 받아서 리서처 → 분석가 → 작성자 순으로 자동 위임
+# 스킬 직접 실행
+/skill video-essencer --url "https://youtu.be/..."
+/skill proposal-generator
+/skill landing-page-generator
+/skill sns-content-generator
+/skill changelog-generator --from v1.0.0
+/skill release-notes --version v1.1.0
 ```
 
 ---
 
-## 🔄 워크플로 예시
+## 🤝 에이전트 간 협업 메시지 형식
 
-### 예시 1: 신제품 콘텐츠 마케팅 전체 파이프라인
-```
-1. 사용자 입력:
-   "AI 캘린더 앱 출시를 위한 전체 마케팅 자료 준비해줘"
-
-2. 비서 → 태스크 분해:
-   ├── [리서처] AI 캘린더 앱 시장 조사
-   ├── [분석가] 경쟁사 포지셔닝 분석
-   ├── [작성자] 랜딩 페이지 생성
-   ├── [작성자] SNS 콘텐츠 패키지 생성
-   └── [작성자] 투자자용 제안서 작성
-
-3. 에이전트들이 픽셀 오피스에서 순차 실행
-
-4. 비서 → 완료 보고 + 파일 목록 안내
-```
-
-### 예시 2: GitHub PR 자동 리뷰 워크플로
-```
-1. CLI 입력:
-   /github sun475300-sudo/offis 42
-
-2. Orchestrator 자동 처리:
-   ├── [리서처]  PR #42 변경사항 및 관련 이슈 파악
-   ├── [분석가]  코드 영향 범위 및 리스크 분석
-   ├── [운영자]  타입 체크 + 린트 실행
-   └── [작성자]  리뷰 코멘트 초안 작성
-
-3. DebateManager → 기술 토론 세션 자동 개시
-   (Frontend, Backend, QA 에이전트가 회의실로 이동)
-```
-
-### 예시 3: 새 워크플로를 스킬로 패키징
-```
-작업을 처음 완료한 후:
-
-1. 운영자에게 요청:
-   "방금 한 SNS 콘텐츠 작업을 스킬로 저장해줘"
-
-2. 운영자 수행:
-   - 작업 단계 역추적
-   - 입력/출력 인터페이스 정의
-   - .claude/agents/skills/[스킬명].md 생성
-
-3. 다음부터:
-   /skill [스킬명] --input "..."
-   → 즉시 동일 품질로 재실행
+```markdown
+**FROM**: [에이전트명]
+**TO**: [에이전트명]
+**TASK**: [구체적 작업 지시]
+**INPUT**: [전달 데이터/파일 경로]
+**OUTPUT**: [기대 산출물 형식]
+**DEADLINE**: [우선순위: 즉시/오늘/이번주]
+**DEPENDS_ON**: [선행 조건]
 ```
 
 ---
@@ -151,70 +162,34 @@ npm run dev
 ## 📁 디렉토리 구조
 
 ```
-offis/
-├── .claude/
-│   └── agents/                     ← AI 에이전트 정의
-│       ├── secretary.md            ← 비서
-│       ├── researcher.md           ← 리서처
-│       ├── analyst.md              ← 분석가
-│       ├── writer.md               ← 작성자
-│       ├── operator.md             ← 운영자
-│       └── skills/                 ← 재사용 스킬 라이브러리
-│           ├── video-content-essencer.md
-│           ├── proposal-generator.md
-│           ├── landing-page-generator.md
-│           └── sns-content-generator.md
-├── src/
-│   ├── agent/                      ← AgentManager, CollaborationSystem
-│   ├── core/                       ← Orchestrator, EventBus, CLIEngine
-│   ├── services/                   ← TaskService, LLMService, GitHubService
-│   ├── debate/                     ← DebateManager, RunnerManager
-│   └── rendering/                  ← PIXI.js 렌더러
-├── OPERATIONS.md                   ← 이 파일
-└── package.json
+.claude/
+├── agents/
+│   ├── secretary.md          # 비서 (오케스트레이터)
+│   ├── researcher.md         # 리서처
+│   ├── analyst.md            # 분석가
+│   ├── writer.md             # 작성자
+│   ├── operator.md           # 운영자
+│   ├── designer.md           # 디자이너
+│   ├── coder.md              # 코더
+│   ├── tester.md             # 테스터 (NEW)
+│   ├── reviewer.md           # 리뷰어 (NEW)
+│   ├── COLLABORATION_TEMPLATES.md
+│   ├── TEST_SCENARIOS.md
+│   └── skills/
+│       ├── video-content-essencer.md
+│       ├── proposal-generator.md
+│       ├── landing-page-generator.md
+│       ├── sns-content-generator.md
+│       ├── changelog-generator.md      # NEW
+│       └── release-notes-generator.md  # NEW
+manus_skills/                 # Manus 플랫폼 YAML 변환본
+├── README.md
+├── video-content-essencer.yaml
+├── proposal-generator.yaml
+├── landing-page-generator.yaml
+└── sns-content-generator.yaml
 ```
 
 ---
 
-## 🛠️ 새 에이전트 추가하기
-
-1. `.claude/agents/새에이전트.md` 파일 생성
-2. 필수 섹션 포함:
-   - `## Role` — 한 줄 역할 설명
-   - `## System Prompt` — AI 지시사항
-   - `## Tool Restrictions` — 허용된 도구 목록
-   - `## Use Cases` — 사용 케이스 3개 (입력/출력 예시 포함)
-3. `src/agent/AgentData.ts`에 에이전트 등록
-4. `src/services/TaskService.ts`의 `roleDeskMap`에 위치 추가
-
----
-
-## 💡 스킬 제작 팁 (영상 핵심 노하우)
-
-1. **SOP 먼저**: 스크립트 작성 전에 단계별 절차를 한국어로 먼저 정리
-2. **입출력 명확화**: 스킬의 입력과 출력을 YAML로 명시
-3. **에이전트 체인**: 단일 에이전트보다 여러 전문 에이전트를 순서대로 연결
-4. **버전 관리**: 스킬 파일도 git으로 관리 → 스킬 히스토리 추적 가능
-5. **테스트 케이스**: 각 스킬에 실제 사용 예시 3개 이상 포함
-
----
-
-## ⚡ 빠른 참조
-
-```bash
-# 개발 서버 시작
-npm run dev
-
-# 타입 체크 (에러 없어야 함)
-npx tsc --noEmit
-
-# 빌드
-npm run build
-
-# Electron 앱 실행
-npm run electron
-```
-
----
-
-*Offis — 당신의 픽셀 오피스에 AI 직원을 채용하세요. 인건비 0원.*
+*PIXEL OFFICE Multi-Agent System — 9 에이전트, 6 스킬, 무한 확장 가능*
