@@ -20,3 +20,6 @@ _*.ps1
 .vscode/
 Thumbs.db
 *.tsbuildinfo
+coverage/
+*.lock.bak
+*.lock.disabled
