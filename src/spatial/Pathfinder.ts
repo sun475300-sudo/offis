@@ -2,21 +2,22 @@ import { GridCell, IPathfinder, ITilemap, PathNode, PathResult } from '../types'
 
 /**
  * A* Pathfinder with dynamic obstacle support.
- * Uses a binary heap for the open set for O(log n) insert/extract.
+ * Open set is currently a sort+shift list (O(n log n) per step).
+ * Switching to a binary heap is a future optimization.
  */
 export class Pathfinder implements IPathfinder {
   private tilemap: ITilemap;
 
   // 8-directional movement (including diagonals)
   private static readonly DIRS: readonly GridCell[] = [
-    { col: 0, row: -1 },  // N
-    { col: 1, row: -1 },  // NE
-    { col: 1, row: 0 },   // E
-    { col: 1, row: 1 },   // SE
-    { col: 0, row: 1 },   // S
-    { col: -1, row: 1 },  // SW
-    { col: -1, row: 0 },  // W
-    { col: -1, row: -1 }, // NW
+    { col: 0, row: -1 },
+    { col: 1, row: -1 },
+    { col: 1, row: 0 },
+    { col: 1, row: 1 },
+    { col: 0, row: 1 },
+    { col: -1, row: 1 },
+    { col: -1, row: 0 },
+    { col: -1, row: -1 },
   ];
 
   constructor(tilemap: ITilemap) {
@@ -28,11 +29,17 @@ export class Pathfinder implements IPathfinder {
       dynamicObstacles.map(c => `${c.col},${c.row}`)
     );
 
-    // Don't block the goal itself (agent is heading there)
     obstacleSet.delete(`${goal.col},${goal.row}`);
 
-    if (!this.tilemap.isWalkable(goal.col, goal.row) && !obstacleSet.has(`${goal.col},${goal.row}`)) {
-      // Try to find nearest walkable neighbor to goal
+    // Guard: relocate unwalkable start to nearest walkable cell.
+    // (regression: bug-fix-2026-05-03)
+    if (!this.tilemap.isWalkable(start.col, start.row)) {
+      const altStart = this.nearestWalkable(start);
+      if (!altStart) return { path: [], found: false, cost: 0, nodesExplored: 0 };
+      start = altStart;
+    }
+
+    if (!this.tilemap.isWalkable(goal.col, goal.row)) {
       const alt = this.nearestWalkable(goal);
       if (!alt) return { path: [], found: false, cost: 0, nodesExplored: 0 };
       goal = alt;
@@ -56,7 +63,6 @@ export class Pathfinder implements IPathfinder {
     gScores.set(this.key(start), 0);
 
     while (openList.length > 0) {
-      // Extract node with lowest f score
       openList.sort((a, b) => a.f - b.f);
       const current = openList.shift()!;
       nodesExplored++;
@@ -83,13 +89,10 @@ export class Pathfinder implements IPathfinder {
         const nk = this.key(neighbor);
         if (closedSet.has(nk)) continue;
 
-        // Check walkability
         if (!this.tilemap.isWalkable(neighbor.col, neighbor.row)) continue;
 
-        // Check dynamic obstacles
         if (obstacleSet.has(nk)) continue;
 
-        // Diagonal: ensure we can cut corner (both adjacent cardinal tiles must be walkable)
         if (dir.col !== 0 && dir.row !== 0) {
           if (!this.tilemap.isWalkable(current.cell.col + dir.col, current.cell.row) ||
               !this.tilemap.isWalkable(current.cell.col, current.cell.row + dir.row)) {
@@ -118,7 +121,6 @@ export class Pathfinder implements IPathfinder {
         openList.push(node);
       }
 
-      // Safety limit to prevent infinite loops on large maps
       if (nodesExplored > 10000) {
         return { path: [], found: false, cost: 0, nodesExplored };
       }
@@ -148,7 +150,7 @@ export class Pathfinder implements IPathfinder {
     return path;
   }
 
-  /** Find nearest walkable cell to a target (BFS) */
+  /** Find nearest walkable cell to a target (concentric ring search) */
   private nearestWalkable(center: GridCell): GridCell | null {
     for (let radius = 1; radius <= 5; radius++) {
       for (let dr = -radius; dr <= radius; dr++) {

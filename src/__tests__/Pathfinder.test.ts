@@ -1,12 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Pathfinder } from '../spatial/Pathfinder';
 import { Tilemap } from '../spatial/Tilemap';
 import type { ITilemap, GridCell } from '../types';
 import { TileType } from '../types';
 
-// ── stub tilemap factory ─────────────────────────────────────────────────
-// Creates an N×N all-floor grid so we can test pathfinding in isolation
-// without the full 60×40 office layout.
+// stub tilemap factory
 function makeFloorGrid(size: number): ITilemap {
   const data: { walkable: boolean; occupantId: string | null }[][] = Array.from(
     { length: size },
@@ -37,38 +35,32 @@ function makeFloorGrid(size: number): ITilemap {
 }
 
 describe('Pathfinder', () => {
-  // ── 직선 경로 ─────────────────────────────────────────────────────────
-  it('같은 위치 → found true, path는 목표 셀만 포함한다', () => {
+  it('same start and goal returns found true with path length <= 1', () => {
     const pf = new Pathfinder(makeFloorGrid(10));
     const result = pf.findPath({ col: 3, row: 3 }, { col: 3, row: 3 });
     expect(result.found).toBe(true);
-    // Implementation reconstructs path including the goal → length 1
     expect(result.path.length).toBeLessThanOrEqual(1);
   });
 
-  it('열린 그리드에서 인접 타일 경로를 찾는다', () => {
+  it('finds adjacent path on open grid', () => {
     const pf = new Pathfinder(makeFloorGrid(10));
     const result = pf.findPath({ col: 0, row: 0 }, { col: 0, row: 3 });
     expect(result.found).toBe(true);
     expect(result.path.length).toBeGreaterThan(0);
-    // 마지막 노드가 목표여야 한다
     const last = result.path[result.path.length - 1];
     expect(last.col).toBe(0);
     expect(last.row).toBe(3);
   });
 
-  it('열린 그리드에서 대각선 경로를 찾는다', () => {
+  it('finds diagonal path on open grid', () => {
     const pf = new Pathfinder(makeFloorGrid(10));
     const result = pf.findPath({ col: 0, row: 0 }, { col: 5, row: 5 });
     expect(result.found).toBe(true);
-    // 대각 이동은 최소 5스텝
     expect(result.path.length).toBeGreaterThanOrEqual(1);
   });
 
-  // ── 장애물 우회 ────────────────────────────────────────────────────────
-  it('동적 장애물을 우회하는 경로를 찾는다', () => {
+  it('routes around dynamic obstacles', () => {
     const grid = makeFloorGrid(10);
-    // Block the direct vertical path at col=2, rows 1-4
     const obstacles: GridCell[] = [
       { col: 2, row: 1 }, { col: 2, row: 2 },
       { col: 2, row: 3 }, { col: 2, row: 4 },
@@ -76,37 +68,91 @@ describe('Pathfinder', () => {
     const pf = new Pathfinder(grid);
     const result = pf.findPath({ col: 2, row: 0 }, { col: 2, row: 5 }, obstacles);
     expect(result.found).toBe(true);
-    // Path must not pass through any obstacle
     for (const step of result.path) {
       const isObs = obstacles.some(o => o.col === step.col && o.row === step.row);
       expect(isObs).toBe(false);
     }
   });
 
-  // ── 도달 불가 ─────────────────────────────────────────────────────────
-  it('완전히 막힌 목표는 found false를 반환한다', () => {
-    // 3×3 grid surrounded entirely by walls — stub a grid where NOTHING is walkable
+  it('returns found false when goal is fully blocked', () => {
     const blocked: ITilemap = {
       getWidth: () => 3,
       getHeight: () => 3,
       getTile: () => ({ type: TileType.Wall, walkable: false, occupantId: null, weight: Infinity }),
       isWalkable: () => false,
       setOccupant: () => {},
-      gridToWorld: (c: GridCell) => ({ x: 0, y: 0 }),
+      gridToWorld: () => ({ x: 0, y: 0 }),
       worldToGrid: () => ({ col: 0, row: 0 }),
       getRawGrid: () => [] as any,
-      findNearestWalkable: () => null,
+      findNearestWalkable: () => null as any,
     } as unknown as ITilemap;
 
     const pf = new Pathfinder(blocked);
     const result = pf.findPath({ col: 0, row: 0 }, { col: 2, row: 2 });
     expect(result.found).toBe(false);
-    // Implementation reconstructs path including the goal → length 1
     expect(result.path.length).toBeLessThanOrEqual(1);
   });
 
-  // ── PathResult 구조 ───────────────────────────────────────────────────
-  it('PathResult에 cost와 nodesExplored가 포함된다', () => {
+  // regression: bug-fix-2026-05-03 (start cell unwalkable guard)
+  it('relocates unwalkable start to nearest walkable cell', () => {
+    const data: { walkable: boolean }[][] = Array.from(
+      { length: 10 },
+      () => Array.from({ length: 10 }, () => ({ walkable: true })),
+    );
+    data[0][0].walkable = false;
+
+    const grid: ITilemap = {
+      getWidth: () => 10,
+      getHeight: () => 10,
+      getTile: (col: number, row: number) => {
+        if (col < 0 || col >= 10 || row < 0 || row >= 10) {
+          return { type: TileType.Wall, walkable: false, occupantId: null, weight: Infinity };
+        }
+        const w = data[row][col].walkable;
+        return { type: w ? TileType.Floor : TileType.Desk, walkable: w, occupantId: null, weight: w ? 1 : Infinity };
+      },
+      isWalkable: (col: number, row: number) => {
+        if (col < 0 || col >= 10 || row < 0 || row >= 10) return false;
+        return data[row][col].walkable;
+      },
+      setOccupant: () => {},
+      gridToWorld: (c: GridCell) => ({ x: c.col * 32, y: c.row * 32 }),
+      worldToGrid: () => ({ col: 0, row: 0 }),
+      getRawGrid: () => [] as any,
+      findNearestWalkable: (c: GridCell) => {
+        if (c.col === 0 && c.row === 0) return { col: 1, row: 0 };
+        return c;
+      },
+    } as unknown as ITilemap;
+
+    const pf = new Pathfinder(grid);
+    const result = pf.findPath({ col: 0, row: 0 }, { col: 5, row: 0 });
+    expect(result.found).toBe(true);
+    expect(result.path.length).toBeGreaterThan(0);
+    const first = result.path[0];
+    expect(first.col === 0 && first.row === 0).toBe(false);
+  });
+
+  it('returns found false when both start and goal unwalkable and no alternative', () => {
+    const allBlocked: ITilemap = {
+      getWidth: () => 5,
+      getHeight: () => 5,
+      getTile: () => ({ type: TileType.Wall, walkable: false, occupantId: null, weight: Infinity }),
+      isWalkable: () => false,
+      setOccupant: () => {},
+      gridToWorld: () => ({ x: 0, y: 0 }),
+      worldToGrid: () => ({ col: 0, row: 0 }),
+      getRawGrid: () => [] as any,
+      findNearestWalkable: () => null as any,
+    } as unknown as ITilemap;
+
+    const pf = new Pathfinder(allBlocked);
+    const result = pf.findPath({ col: 0, row: 0 }, { col: 4, row: 4 });
+    expect(result.found).toBe(false);
+    expect(result.path.length).toBeLessThanOrEqual(1);
+  });
+
+  it('PathResult includes cost and nodesExplored', () => {
     const pf = new Pathfinder(makeFloorGrid(10));
     const result = pf.findPath({ col: 0, row: 0 }, { col: 4, row: 0 });
     expect(result.found).toBe(true);
@@ -115,12 +161,10 @@ describe('Pathfinder', () => {
     expect(result.nodesExplored).toBeGreaterThan(0);
   });
 
-  // ── 실제 Tilemap과의 통합 ─────────────────────────────────────────────
-  it('실제 Tilemap(60×40)에서 walkable 셀 간 경로를 찾는다', () => {
+  it('finds path between walkable cells on real Tilemap (60x40)', () => {
     const tilemap = new Tilemap(60, 40);
     const pf = new Pathfinder(tilemap);
 
-    // Find two walkable cells to navigate between
     let start: GridCell | null = null;
     let goal: GridCell | null = null;
     outer: for (let r = 1; r < 39; r++) {
