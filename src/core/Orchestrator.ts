@@ -117,8 +117,19 @@ export class Orchestrator {
   /** Start periodic dispatch loop (for queued tasks awaiting available agents) */
   startDispatchLoop(intervalMs: number = 2000): void {
     this.dispatchInterval = window.setInterval(() => {
-      this.dispatchPendingTasks();
-      this.checkStaleTasks();
+      // Isolate each pass so a throw in dispatch doesn't skip the stale
+      // watchdog (and vice versa). Without this, one bad task could
+      // permanently break either feature for the rest of the session.
+      try {
+        this.dispatchPendingTasks();
+      } catch (e) {
+        console.error('[Orchestrator] dispatchPendingTasks failed:', e);
+      }
+      try {
+        this.checkStaleTasks();
+      } catch (e) {
+        console.error('[Orchestrator] checkStaleTasks failed:', e);
+      }
     }, intervalMs);
   }
 
