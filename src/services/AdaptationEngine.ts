@@ -262,8 +262,15 @@ export class AdaptationEngine {
     this.monitoringEnabled = true;
     if (this.checkInterval) clearInterval(this.checkInterval);
     this.checkInterval = window.setInterval(() => {
-      const metrics = getMetrics();
-      this.checkConditions(metrics);
+      // Caller-supplied getMetrics may throw; checkConditions runs rule
+      // actions that could throw too. A single bad call shouldn't kill
+      // the interval-bound monitor — log and skip the tick.
+      try {
+        const metrics = getMetrics();
+        this.checkConditions(metrics);
+      } catch (e) {
+        console.error('[AdaptationEngine] monitoring tick failed:', e);
+      }
     }, intervalMs);
   }
 
