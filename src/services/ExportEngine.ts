@@ -49,16 +49,20 @@ export class ExportEngine {
   private exportCSV(data: unknown): string {
     if (Array.isArray(data) && data.length > 0) {
       const headers = Object.keys(data[0] as object);
-      const rows = data.map(item => 
-        headers.map(h => {
-          const val = (item as Record<string, unknown>)[h];
-          if (typeof val === 'string' && val.includes(',')) {
-            return `"${val}"`;
-          }
-          return String(val ?? '');
-        }).join(',')
+      const escape = (raw: unknown): string => {
+        const s = String(raw ?? '');
+        // RFC 4180: wrap in quotes and double any internal quotes when
+        // the value contains comma, quote, CR, or LF. The old impl only
+        // wrapped commas and lost quotes/newlines entirely.
+        if (/[",\r\n]/.test(s)) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+      const rows = data.map(item =>
+        headers.map(h => escape((item as Record<string, unknown>)[h])).join(',')
       );
-      return [headers.join(','), ...rows].join('\n');
+      return [headers.map(escape).join(','), ...rows].join('\n');
     }
     return '';
   }

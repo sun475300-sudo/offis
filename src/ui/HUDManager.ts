@@ -48,7 +48,12 @@ export class HUDManager {
       if (stats.schedules.length === 0) {
         list.innerHTML = `<div class="test-schedule-item">예정된 테스트 없음</div>`;
       } else {
-        list.innerHTML = stats.schedules.map(s => `<div class="test-schedule-item">${s}</div>`).join('');
+        // Schedule strings may come from runner names / task descriptions;
+        // escape before injecting into HTML.
+        const esc = (s: string) => s.replace(/[&<>"']/g, ch => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[ch] as string));
+        list.innerHTML = stats.schedules.map(s => `<div class="test-schedule-item">${esc(s)}</div>`).join('');
       }
     }
   }
@@ -57,20 +62,29 @@ export class HUDManager {
     const list = document.getElementById('agent-list');
     if (!list) return;
 
-    // Use a template-based approach or simplified innerHTML for now to match main.ts
-    // In a full refactor, this would be more efficient
+    // Escape any user/agent-sourced strings before interpolating into HTML
+    // so a crafted name/id cannot inject markup.
+    const esc = (s: unknown): string =>
+      String(s ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[ch] as string));
+
     list.innerHTML = agents.map(agent => {
       // Provide a fallback color based on role if agent.color is undefined in Snapshot
       const safeColor = agent.color ?? this.getRoleColor(agent.role);
       const colorHex = safeColor.toString(16).padStart(6, '0');
       return `
-      <div class="agent-item" data-id="${agent.id}" data-state="${agent.state}">
+      <div class="agent-item" data-id="${esc(agent.id)}" data-state="${esc(agent.state)}">
         <div class="agent-avatar" style="background-color: #${colorHex}"></div>
         <div class="agent-info">
-          <div class="agent-name">${agent.name}</div>
-          <div class="agent-role">${agent.role}</div>
+          <div class="agent-name">${esc(agent.name)}</div>
+          <div class="agent-role">${esc(agent.role)}</div>
         </div>
-        <div class="agent-state" data-state="${agent.state}">${agent.state}</div>
+        <div class="agent-state" data-state="${esc(agent.state)}">${esc(agent.state)}</div>
       </div>
     `;
     }).join('');

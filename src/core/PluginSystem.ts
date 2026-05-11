@@ -74,15 +74,16 @@ export class PluginSystem {
   enablePlugin(pluginId: string): boolean {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) return false;
+    // Mark enabled before recursing so circular dependencies (A -> B -> A)
+    // don't cause infinite recursion.
+    if (this.enabledPlugins.has(pluginId)) return true;
+    this.enabledPlugins.add(pluginId);
+    plugin.enabled = true;
     if (plugin.dependencies) {
       for (const depId of plugin.dependencies) {
-        if (!this.enabledPlugins.has(depId)) {
-          this.enablePlugin(depId);
-        }
+        this.enablePlugin(depId);
       }
     }
-    plugin.enabled = true;
-    this.enabledPlugins.add(pluginId);
     plugin.hooks?.onEnable?.();
     return true;
   }

@@ -144,6 +144,12 @@ function reportAndReturn(ctx: BTContext): BTNodeStatus {
 // Per-agent idle state tracking
 const idleTimers: Map<string, { nextActionTime: number; idleAction: 'waiting' | 'wandering' | 'coffee' | 'chatting' }> = new Map();
 
+/** Drop an agent's idle-timer entry. Call on Agent.destroy() so long
+ *  sessions with many spawns/despawns don't leak this module-level map. */
+export function clearIdleTimer(agentId: string): void {
+  idleTimers.delete(agentId);
+}
+
 function idleBehavior(ctx: BTContext): BTNodeStatus {
   const agentId = ctx.agent.id;
   const now = Date.now();

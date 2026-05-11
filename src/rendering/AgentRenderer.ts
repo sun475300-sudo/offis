@@ -100,6 +100,9 @@ export class AgentRenderer {
     for (const [id, visual] of this.agentVisuals) {
       if (!activeIds.has(id)) {
         this.parentContainer.removeChild(visual.container);
+        // Release GPU/CPU resources for all child Graphics/Text; otherwise
+        // they linger after the container is detached.
+        visual.container.destroy({ children: true });
         this.agentVisuals.delete(id);
       }
     }

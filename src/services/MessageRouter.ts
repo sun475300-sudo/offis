@@ -156,19 +156,23 @@ export class MessageRouter {
     }
 
     if (this.messageBuffer.length >= this.maxBufferSize) {
-      this.messageBuffer.shift();
+      const evicted = this.messageBuffer.shift();
+      // deliveryRecords was keyed by message.id with no cleanup hook; it
+      // grew in lockstep with every send() forever. When a message is
+      // evicted from the buffer, also drop its delivery records.
+      if (evicted) this.deliveryRecords.delete(evicted.id);
     }
     this.messageBuffer.push(msg);
 
     const routes = this.route(msg);
     for (const receiverId of routes) {
-      this.deliver(msg, receiverId);
+      void this.deliver(msg, receiverId);
     }
 
     return msg.id;
   }
 
-  private deliver(message: RoutableMessage, receiverId: string): void {
+  private async deliver(message: RoutableMessage, receiverId: string): Promise<void> {
     const key = `${message.id}-${receiverId}`;
     const record: DeliveryRecord = {
       messageId: message.id,
@@ -187,7 +191,7 @@ export class MessageRouter {
     if (handler) {
       record.attempts++;
       try {
-        handler(message);
+        await handler(message);
         record.status = 'delivered';
       } catch (error) {
         record.status = 'failed';

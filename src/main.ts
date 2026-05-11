@@ -32,7 +32,6 @@ import { Pathfinder } from './spatial/Pathfinder';
 import { TilemapRenderer } from './rendering/TilemapRenderer';
 import { AgentRenderer } from './rendering/AgentRenderer';
 import { CameraController } from './rendering/CameraController';
-
 import { ParticleSystem } from './rendering/ParticleSystem';
 import { SpeechBubbleRenderer } from './rendering/SpeechBubbleRenderer';
 import { TaskProgressRenderer } from './rendering/TaskProgressRenderer';
@@ -353,14 +352,16 @@ export class PixelOfficeApp {
       const target = confPos[idx] || confPos[0];
       // BUG FIX: TaskInfo requires assignedAgentId, progress, parentTaskId, createdAt
       pair.agent!.assignTask({
-        id: `debate-move-${Date.now()}`,
+        // Include agent id so the whole forEach doesn't hand out a single
+        // shared id (Date.now() resolves to the same ms for every element).
+        id: `debate-move-${sessionId}-${pair.agent!.id}`,
         description: '회의실 이동 (기술 토론)',
         requiredRole: pair.agent!.role,
         targetDesk: target,
         priority: TaskPriority.High,
         estimatedDuration: 1,
         status: TaskStatus.Pending,
-        assignedAgentId: null,
+        assignedAgentId: pair.agent!.id,
         progress: 0,
         parentTaskId: null,
         createdAt: Date.now(),

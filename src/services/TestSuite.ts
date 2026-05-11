@@ -102,20 +102,30 @@ export class TestSuite {
     const timeoutPromise = new Promise<void>(resolve => setTimeout(resolve, config.duration * 1000));
     await Promise.race([Promise.allSettled(tasks), timeoutPromise]);
 
+    // Snapshot counters immediately after the race so any tasks that are
+    // still running in the background after a timeout don't inflate the
+    // result (or, worse, bleed into the next runStressTest invocation,
+    // which resets these same fields at start).
+    const tasksCompletedSnap = this.tasksCompleted;
+    const failedTasksSnap = this.failedTasks;
+    const githubCallsSnap = this.githubCalls;
+    const rateLimitHitsSnap = this.rateLimitHits;
+    const responseTimesSnap = [...this.responseTimes];
+
     const endMemory = (performance as any).memory?.usedJSHeapSize || 0;
     const duration = (Date.now() - this.startTime) / 1000;
 
     const result: StressTestResult = {
       totalAgents: config.agentCount,
-      totalTasksCompleted: this.tasksCompleted,
-      failedTasks: this.failedTasks,
-      avgResponseTime: this.responseTimes.length > 0 
-        ? this.responseTimes.reduce((a, b) => a + b, 0) / this.responseTimes.length 
+      totalTasksCompleted: tasksCompletedSnap,
+      failedTasks: failedTasksSnap,
+      avgResponseTime: responseTimesSnap.length > 0
+        ? responseTimesSnap.reduce((a, b) => a + b, 0) / responseTimesSnap.length
         : 0,
       peakMemory: Math.max(startMemory, endMemory),
       avgFps: 60,
-      githubApiCalls: this.githubCalls,
-      rateLimitHits: this.rateLimitHits,
+      githubApiCalls: githubCallsSnap,
+      rateLimitHits: rateLimitHitsSnap,
       duration,
       errors: [],
     };
@@ -362,7 +372,7 @@ export class TestSuite {
   private schedules: { id: string; name: string; interval: number; lastRun: number; enabled: boolean }[] = [];
 
   addSchedule(name: string, intervalMinutes: number): string {
-    const id = `schedule-${Date.now()}`;
+    const id = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.schedules.push({
       id,
       name,
@@ -422,7 +432,7 @@ export class TestSuite {
   ];
 
   addCustomScenario(name: string, config: StressTestConfig, description: string): string {
-    const id = `custom-${Date.now()}`;
+    const id = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.customScenarios.push({ id, name, config, description });
     this.saveCustomScenarios();
     return id;
@@ -524,19 +534,26 @@ export class TestSuite {
 
   checkNotification(result: any): string[] {
     const alerts: string[] = [];
-    
-    if (result.failedTasks > this.notifications.find(n => n.type === 'failure')!.threshold) {
-      alerts.push(`⚠️ 실패 작업: ${result.failedTasks}개 (기준: ${this.notifications.find(n => n.type === 'failure')!.threshold})`);
+
+    // Lookup with optional-chaining; earlier code used `find(...)!` which
+    // crashed when loadNotifications() restored a persisted array that
+    // happened to be missing one of these entries. Also respect the
+    // `enabled` flag that was being ignored entirely.
+    const failure = this.notifications.find(n => n.type === 'failure');
+    if (failure?.enabled && result.failedTasks > failure.threshold) {
+      alerts.push(`⚠️ 실패 작업: ${result.failedTasks}개 (기준: ${failure.threshold})`);
     }
-    
-    if (result.duration * 1000 > this.notifications.find(n => n.type === 'slow')!.threshold) {
-      alerts.push(`🐌 느린 실행: ${result.duration.toFixed(1)}s (기준: ${this.notifications.find(n => n.type === 'slow')!.threshold}ms)`);
+
+    const slow = this.notifications.find(n => n.type === 'slow');
+    if (slow?.enabled && result.duration * 1000 > slow.threshold) {
+      alerts.push(`🐌 느린 실행: ${result.duration.toFixed(1)}s (기준: ${slow.threshold}ms)`);
     }
-    
-    if (result.rateLimitHits > this.notifications.find(n => n.type === 'rate-limit')!.threshold) {
-      alerts.push(`🚨 Rate Limit: ${result.rateLimitHits}회 (기준: ${this.notifications.find(n => n.type === 'rate-limit')!.threshold})`);
+
+    const rateLimit = this.notifications.find(n => n.type === 'rate-limit');
+    if (rateLimit?.enabled && result.rateLimitHits > rateLimit.threshold) {
+      alerts.push(`🚨 Rate Limit: ${result.rateLimitHits}회 (기준: ${rateLimit.threshold})`);
     }
-    
+
     return alerts;
   }
 
@@ -667,7 +684,7 @@ export class TestSuite {
   private templates: { id: string; name: string; config: StressTestConfig; description: string; createdAt: number }[] = [];
 
   saveTemplate(name: string, config: StressTestConfig, description: string = ''): string {
-    const id = `template-${Date.now()}`;
+    const id = `template-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.templates.push({ id, name, config, description, createdAt: Date.now() });
     this.saveTemplates();
     return id;
@@ -706,7 +723,7 @@ export class TestSuite {
   private webhooks: { id: string; url: string; events: string[]; enabled: boolean }[] = [];
 
   addWebhook(url: string, events: string[]): string {
-    const id = `webhook-${Date.now()}`;
+    const id = `webhook-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.webhooks.push({ id, url, events, enabled: true });
     this.saveWebhooks();
     return id;

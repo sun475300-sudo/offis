@@ -78,6 +78,11 @@ export class TaskService {
       .sort((a, b) => b.priority - a.priority); // higher priority first
   }
 
+  /** Return every task regardless of status. */
+  getAllTasks(): TaskInfo[] {
+    return Array.from(this.tasks.values());
+  }
+
   markAssigned(taskId: string, agentId: string): void {
     const task = this.tasks.get(taskId);
     if (task) {

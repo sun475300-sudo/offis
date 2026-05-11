@@ -89,7 +89,13 @@ export class ResourcePool {
     };
 
     resource.used += request.amount;
-    resource.status = 'in_use';
+    // Only flip to 'in_use' when the resource is actually saturated —
+    // findAvailableResources excludes anything that isn't 'available', so
+    // previously a 10-capacity resource with 3 used blocked a request for
+    // the other 7 even though capacity remained.
+    if (resource.used >= resource.capacity) {
+      resource.status = 'in_use';
+    }
     resource.ownerId = request.requesterId;
 
     this.allocations.set(allocation.id, allocation);
@@ -103,8 +109,15 @@ export class ResourcePool {
     const resource = this.resources.get(allocation.resourceId);
     if (resource) {
       resource.used = Math.max(0, resource.used - allocation.amount);
-      if (resource.used === 0) {
+      // Reopen the resource for further allocations as soon as we're
+      // no longer saturated. Previously status only flipped back to
+      // 'available' when used hit 0, so a release that dropped a
+      // fully-saturated resource to partial usage still blocked new
+      // requests until the last byte was released.
+      if (resource.used < resource.capacity && resource.status === 'in_use') {
         resource.status = 'available';
+      }
+      if (resource.used === 0) {
         resource.ownerId = undefined;
       }
     }
@@ -123,14 +136,14 @@ export class ResourcePool {
   private processPendingRequests(): void {
     if (this.pendingRequests.length === 0) return;
 
-    const stillPending: ResourceRequest[] = [];
-    for (const request of this.pendingRequests) {
-      const allocation = this.allocate(request);
-      if (!allocation) {
-        stillPending.push(request);
-      }
+    // Snapshot + clear before iterating so allocate() re-queuing a failed
+    // request only does so once. Previously, a failed allocate() re-pushed
+    // onto the same array we were iterating and the item was double-queued.
+    const queued = this.pendingRequests;
+    this.pendingRequests = [];
+    for (const request of queued) {
+      this.allocate(request);
     }
-    this.pendingRequests = stillPending;
   }
 
   getResource(resourceId: string): Resource | undefined {

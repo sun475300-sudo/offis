@@ -74,21 +74,40 @@ export class PerformanceProfiler {
   }
 
   profile<T>(name: string, fn: () => T): T {
-    this.startTimer(name);
+    // Use a unique internal key per call so nested/concurrent calls
+    // under the same public name don't overwrite each other's start
+    // timestamp. We rewrite sample.name to the original for stats.
+    const internalName = `${name}::${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    this.startTimer(internalName);
     try {
       return fn();
     } finally {
-      this.endTimer(name);
+      this.endTimerAs(internalName, name);
     }
   }
 
   async profileAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    this.startTimer(name);
+    const internalName = `${name}::${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    this.startTimer(internalName);
     try {
       return await fn();
     } finally {
-      this.endTimer(name);
+      this.endTimerAs(internalName, name);
     }
+  }
+
+  private endTimerAs(internalName: string, reportedName: string): number {
+    if (!this.enabled) return 0;
+    const startTime = this.activeTimers.get(internalName);
+    if (!startTime) return 0;
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    this.samples.push({ name: reportedName, startTime, endTime, duration });
+    if (this.samples.length > this.maxSamples) {
+      this.samples.shift();
+    }
+    this.activeTimers.delete(internalName);
+    return duration;
   }
 
   getStats(name?: string): ProfilerStats[] {

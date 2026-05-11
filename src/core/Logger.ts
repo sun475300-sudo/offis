@@ -30,6 +30,7 @@ export class Logger {
   private logQueue: LogEntry[] = [];
   private flushInterval: number | null = null;
   private sources: Set<string> = new Set();
+  private readonly maxRetainedLogs = 5000;
 
   private constructor() {
     this.config = {
@@ -70,6 +71,11 @@ export class Logger {
 
   private log(entry: LogEntry): void {
     this.logs.push(entry);
+    // Cap retained history so a long-running session doesn't grow the
+    // logs array without bound.
+    if (this.logs.length > this.maxRetainedLogs) {
+      this.logs.splice(0, this.logs.length - this.maxRetainedLogs);
+    }
     this.logQueue.push(entry);
 
     if (this.config.enableConsole) {

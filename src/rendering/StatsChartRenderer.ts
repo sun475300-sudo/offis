@@ -54,6 +54,9 @@ export class StatsChartRenderer {
   render(agents: AgentSnapshot[], completedTasks: number, totalTasks: number): void {
     if (!this.visible) return;
 
+    // Destroy existing children instead of just detaching so we don't
+    // leak a fresh set of Graphics/Text objects every render tick.
+    for (const child of [...this.container.children]) child.destroy({ children: true });
     this.container.removeChildren();
 
     // Background panel

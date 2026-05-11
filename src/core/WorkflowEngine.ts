@@ -76,7 +76,12 @@ export class WorkflowEngine {
             result = result.replace(new RegExp(`\\$${key}`, 'g'), String(context[key]));
           }
         }
-        return eval(result);
+        // Reject anything that isn't a simple numeric/boolean comparison
+        // before handing it to the evaluator — the previous eval() would
+        // happily run arbitrary JS pulled from workflow definitions.
+        if (!/^[\s\d\w."'<>=!&|()+\-*/%]+$/.test(result)) return false;
+        // eslint-disable-next-line no-new-func
+        return Boolean(new Function(`"use strict"; return (${result});`)());
       } catch {
         return false;
       }

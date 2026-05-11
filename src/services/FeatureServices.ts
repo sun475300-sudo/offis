@@ -63,7 +63,7 @@ export class AgentPersonaSystem {
   }
 
   addPersona(persona: Omit<AgentPersona, 'id'>): string {
-    const id = `persona-${Date.now()}`;
+    const id = `persona-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.personas.push({ ...persona, id });
     return id;
   }
@@ -90,11 +90,15 @@ export class TaskQueueManager {
       id, name, priority, status: 'pending', createdAt: Date.now(), estimatedDuration,
     });
     this.queue.sort((a, b) => b.priority - a.priority);
-    
+
     if (this.queue.length > this.maxSize) {
-      this.queue = this.queue.slice(-this.maxSize);
+      // Queue is sorted priority DESC — keep the top maxSize (front of
+      // the array). The old slice(-maxSize) kept the tail, i.e. the
+      // lowest-priority items, and silently dropped the most important
+      // work whenever the queue overflowed.
+      this.queue = this.queue.slice(0, this.maxSize);
     }
-    
+
     return id;
   }
 
@@ -131,7 +135,9 @@ export class CodeSnippetManager {
   private maxSnippets = 200;
 
   add(name: string, language: string, code: string, tags: string[] = []): string {
-    const id = `snippet-${Date.now()}`;
+    // Date.now() by itself collides when multiple snippets are added in
+    // the same millisecond — add a random suffix so ids are unique.
+    const id = `snippet-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.snippets.push({ id, name, language, code, tags, createdAt: Date.now(), usageCount: 0 });
     
     if (this.snippets.length > this.maxSnippets) {
@@ -196,7 +202,7 @@ export class ThemeManager {
   }
 
   addCustomTheme(name: string, colors: Record<string, string>): string {
-    const id = `theme-${Date.now()}`;
+    const id = `theme-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.themes.push({ name, colors, isDark: true });
     return id;
   }
@@ -233,7 +239,11 @@ export class ConfigManager {
     const a = document.createElement('a');
     a.href = url;
     a.download = `pixel-office-config-${Date.now()}.json`;
+    // Firefox and some Safari versions ignore click() on a detached <a>.
+    // Append the anchor before clicking, then clean up.
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 }
@@ -265,7 +275,7 @@ export class CollaborationHub {
   private activeSessions: Map<string, { participants: string[]; startedAt: number; type: string; messages: { sender: string; content: string; timestamp: number }[] }> = new Map();
 
   createSession(type: string, participants: string[]): string {
-    const id = `session-${Date.now()}`;
+    const id = `session-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     this.activeSessions.set(id, { participants, startedAt: Date.now(), type, messages: [] });
     return id;
   }

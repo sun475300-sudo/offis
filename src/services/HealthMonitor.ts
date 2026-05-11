@@ -49,6 +49,10 @@ export class HealthMonitor {
     }
   };
   private alerts: HealthAlert[] = [];
+  private readonly maxAlerts = 500;
+  // Last alerted status per agent so performHealthCheck only fires on
+  // transitions instead of once per tick while the agent stays unhealthy.
+  private lastAlertedStatus: Map<string, HealthStatus> = new Map();
   private checkInterval: number | null = null;
   private listeners: Set<(alert: HealthAlert) => void> = new Set();
   private startTime = Date.now();
@@ -168,7 +172,16 @@ export class HealthMonitor {
   private performHealthCheck(): void {
     for (const [agentId, health] of this.agentHealth) {
       if (health.status === 'unhealthy' || health.status === 'degraded') {
-        this.createAlert(agentId, health.status, `Agent ${agentId} is ${health.status}`);
+        // Only alert when the status actually changes from the last one
+        // we alerted on. Previously this generated a fresh alert every
+        // tick while the agent remained unhealthy.
+        if (this.lastAlertedStatus.get(agentId) !== health.status) {
+          this.createAlert(agentId, health.status, `Agent ${agentId} is ${health.status}`);
+          this.lastAlertedStatus.set(agentId, health.status);
+        }
+      } else if (this.lastAlertedStatus.has(agentId)) {
+        // Agent recovered — reset so future degradations alert again.
+        this.lastAlertedStatus.delete(agentId);
       }
     }
   }
@@ -183,6 +196,9 @@ export class HealthMonitor {
       acknowledged: false
     };
     this.alerts.push(alert);
+    if (this.alerts.length > this.maxAlerts) {
+      this.alerts.splice(0, this.alerts.length - this.maxAlerts);
+    }
     this.notifyListeners(alert);
   }
 

@@ -125,6 +125,9 @@ export enum EventType {
   AgentPathBlocked = 'agent:pathBlocked',
   AgentTalked = 'agent:talked',
 
+  // Collaboration events
+  MeetingStarted = 'collab:meetingStarted',
+
   // System events
   TickUpdate = 'system:tick',
   CameraFollow = 'camera:follow',

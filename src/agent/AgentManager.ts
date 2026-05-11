@@ -54,7 +54,11 @@ export class AgentManager {
 
   /** Remove agent from the system */
   removeAgent(id: string): void {
-    this.agents.delete(id);
+    const agent = this.agents.get(id);
+    if (agent) {
+      agent.destroy();
+      this.agents.delete(id);
+    }
   }
 
   getAgent(id: string): Agent | undefined {

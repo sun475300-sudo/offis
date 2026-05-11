@@ -46,6 +46,11 @@ export class TilemapRenderer {
 
   /** Render the entire tilemap as pixel graphics */
   renderMap(tilemap: Tilemap): void {
+    // removeChildren detaches but does not release the underlying GPU
+    // resources — destroy each child so repeated renderMap() calls
+    // don't leak Graphics/Text objects.
+    for (const child of [...this.container.children]) child.destroy({ children: true });
+    for (const child of [...this.labelsContainer.children]) child.destroy({ children: true });
     this.container.removeChildren();
     this.labelsContainer.removeChildren();
 

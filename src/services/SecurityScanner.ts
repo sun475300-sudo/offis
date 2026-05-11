@@ -117,9 +117,15 @@ export class SecurityScanner {
     const vulnerabilities: Vulnerability[] = [];
 
     for (const rule of this.rules) {
-      const matches = code.matchAll(rule.pattern);
+      // code.matchAll throws TypeError if the pattern doesn't carry the
+      // /g flag. User-added rules may forget it; clone into a /g variant
+      // so the scan keeps running instead of aborting mid-file.
+      const pattern = rule.pattern.flags.includes('g')
+        ? rule.pattern
+        : new RegExp(rule.pattern.source, rule.pattern.flags + 'g');
+      const matches = code.matchAll(pattern);
       for (const match of matches) {
-        const lineNumber = code.substring(0, match.index).split('\n').length;
+        const lineNumber = code.substring(0, match.index ?? 0).split('\n').length;
         vulnerabilities.push({
           id: `${rule.id}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           title: rule.name,

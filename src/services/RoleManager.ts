@@ -148,14 +148,15 @@ export class RoleManager {
     return { allowed: false, reason: 'Permission denied' };
   }
 
-  private getEffectivePermissions(roleId: string): Permission[] {
+  private getEffectivePermissions(roleId: string, visited: Set<string> = new Set()): Permission[] {
     const role = this.roles.get(roleId);
-    if (!role) return [];
+    if (!role || visited.has(roleId)) return [];
+    visited.add(roleId);
 
     const permissions = [...role.permissions];
-    
+
     if (role.inheritsFrom) {
-      const parentPermissions = this.getEffectivePermissions(role.inheritsFrom);
+      const parentPermissions = this.getEffectivePermissions(role.inheritsFrom, visited);
       permissions.push(...parentPermissions);
     }
 
@@ -164,16 +165,21 @@ export class RoleManager {
 
   private buildHierarchy(): void {
     this.roleHierarchy.clear();
-    
+
     for (const role of this.roles.values()) {
       const ancestors: string[] = [];
+      // Track visited ids so a self-referential or circular
+      // inheritsFrom chain (A → B → A) doesn't lock us in an
+      // infinite loop.
+      const seen = new Set<string>([role.id]);
       let current: Role | undefined = role;
-      
-      while (current?.inheritsFrom) {
+
+      while (current?.inheritsFrom && !seen.has(current.inheritsFrom)) {
         ancestors.push(current.inheritsFrom);
+        seen.add(current.inheritsFrom);
         current = this.roles.get(current.inheritsFrom);
       }
-      
+
       this.roleHierarchy.set(role.id, ancestors);
     }
   }

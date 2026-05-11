@@ -72,6 +72,11 @@ export class AgentNegotiation {
     participants: string[],
     initialTerms: NegotiationTerms
   ): Negotiation {
+    if (!participants || participants.length === 0) {
+      // Fail loud instead of silently creating an offer with undefined
+      // offererId that corrupts every downstream filter/search.
+      throw new Error('startNegotiation requires at least one participant');
+    }
     const id = `neg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const negotiation: Negotiation = {
       id,
@@ -109,6 +114,12 @@ export class AgentNegotiation {
     if (!negotiation || !negotiation.participants.includes(offererId)) {
       return null;
     }
+    // Only accept new offers while the negotiation is still live.
+    // Previously an already-accepted/rejected/cancelled negotiation could
+    // be mutated with additional offers.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return null;
+    }
 
     if (negotiation.offers.length >= this.rules.maxOffers) {
       return null;
@@ -129,6 +140,11 @@ export class AgentNegotiation {
     if (!negotiation || !negotiation.currentOffer) {
       return { success: false, reason: 'Negotiation not found or no offer' };
     }
+    // Don't resurrect a finished negotiation. acceptOffer previously
+    // overwrote resolution on cancelled/rejected negotiations too.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return { success: false, reason: `Negotiation is ${negotiation.status}` };
+    }
 
     negotiation.status = 'accepted';
     negotiation.resolution = 'Terms accepted';
@@ -148,6 +164,11 @@ export class AgentNegotiation {
     if (!negotiation) {
       return { success: false, reason: 'Negotiation not found' };
     }
+    // Same state guard as accept/makeOffer: don't overwrite an
+    // already-finalized negotiation.
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return { success: false, reason: `Negotiation is ${negotiation.status}` };
+    }
 
     negotiation.status = 'rejected';
     negotiation.resolution = reason || 'Offer rejected';
@@ -161,6 +182,9 @@ export class AgentNegotiation {
   cancelNegotiation(negotiationId: string): boolean {
     const negotiation = this.negotiations.get(negotiationId);
     if (!negotiation) return false;
+    if (negotiation.status !== 'pending' && negotiation.status !== 'negotiating') {
+      return false;
+    }
 
     negotiation.status = 'cancelled';
     negotiation.updatedAt = Date.now();

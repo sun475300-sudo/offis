@@ -122,12 +122,16 @@ export class SharedMemory {
   }
 
   search(keywords: string[], limit = 10): MemoryEntry[] {
-    const query: MemoryQuery = { limit };
+    // Query without an upfront limit so the keyword filter actually sees
+    // every entry; the cap is applied once at the end after de-dup and
+    // access-count ranking. Previously `query({ limit })` pre-trimmed to
+    // the top-N by recency and the keyword filter missed older matches.
+    const allEntries = this.query({});
     const results: MemoryEntry[] = [];
 
     for (const keyword of keywords) {
       const keywordLower = keyword.toLowerCase();
-      const matches = this.query(query).filter(e => {
+      const matches = allEntries.filter(e => {
         const contentStr = JSON.stringify(e.content).toLowerCase();
         return contentStr.includes(keywordLower) || e.tags.some(t => t.toLowerCase().includes(keywordLower));
       });
@@ -169,7 +173,8 @@ export class SharedMemory {
     if (this.entries.size > this.options.maxEntries) {
       const sorted = Array.from(this.entries.values())
         .sort((a, b) => a.lastAccessed - b.lastAccessed);
-      for (let i = 0; i < this.entries.size - this.options.maxEntries; i++) {
+      const toRemove = this.entries.size - this.options.maxEntries;
+      for (let i = 0; i < toRemove; i++) {
         this.entries.delete(sorted[i].id);
       }
     }
@@ -198,8 +203,18 @@ export class SharedMemory {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
-      this.entries.clear();
+      if (!Array.isArray(data)) return false;
+      // Validate shape before mutating state — previously a malformed
+      // payload (e.g. one entry missing `id`) would set `undefined` as
+      // the Map key or corrupt existing keys.
+      const parsed: MemoryEntry[] = [];
       for (const entry of data) {
+        if (!entry || typeof entry !== 'object') continue;
+        if (typeof entry.id !== 'string' || typeof entry.type !== 'string') continue;
+        parsed.push(entry as MemoryEntry);
+      }
+      this.entries.clear();
+      for (const entry of parsed) {
         this.entries.set(entry.id, entry);
       }
       return true;

@@ -20,6 +20,7 @@ export interface ScheduleConfig {
 export class TaskScheduler {
   private static instance: TaskScheduler;
   private scheduledTasks: Map<string, ScheduledTask> = new Map();
+  private readonly maxTasks = 1000;
   private config: ScheduleConfig = {
     strategy: 'priority',
     maxConcurrent: 10,
@@ -48,6 +49,26 @@ export class TaskScheduler {
       status: 'pending'
     };
     this.scheduledTasks.set(id, scheduledTask);
+    // Cap the map by evicting the oldest terminal-state entries
+    // (completed/cancelled) before falling back to FIFO on active
+    // entries. Previously this.scheduledTasks grew forever.
+    if (this.scheduledTasks.size > this.maxTasks) {
+      const toDrop = this.scheduledTasks.size - this.maxTasks;
+      const dropKeys: string[] = [];
+      for (const [k, t] of this.scheduledTasks) {
+        if (t.status === 'completed' || t.status === 'cancelled') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.scheduledTasks.keys()) {
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) this.scheduledTasks.delete(k);
+    }
     this.notifyListeners(scheduledTask);
     return scheduledTask;
   }

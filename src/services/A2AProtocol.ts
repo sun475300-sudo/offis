@@ -56,6 +56,7 @@ export class A2AProtocol {
   private agentCards: Map<string, AgentCard> = new Map();
   private tasks: Map<string, A2ATask> = new Map();
   private messageQueue: A2AMessage[] = [];
+  private readonly maxQueueSize = 500;
   private messageHandlers: Map<A2AMessageType, (msg: A2AMessage) => Promise<unknown>> = new Map();
 
   private constructor() {}
@@ -108,6 +109,11 @@ export class A2AProtocol {
       }
     } else {
       this.messageQueue.push(msg);
+      // Queue has no TTL or consumer loop — cap it so an app without
+      // handlers doesn't grow it unbounded.
+      if (this.messageQueue.length > this.maxQueueSize) {
+        this.messageQueue.splice(0, this.messageQueue.length - this.maxQueueSize);
+      }
     }
 
     return msg;

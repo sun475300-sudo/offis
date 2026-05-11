@@ -83,19 +83,35 @@ export class ToastManager {
       info: 'ℹ️',
     };
 
-    el.innerHTML = `
-      <div class="toast-icon">${icons[toast.type]}</div>
-      <div class="toast-content">
-        <div class="toast-title">${toast.title}</div>
-        <div class="toast-message">${toast.message}</div>
-      </div>
-      <button class="toast-close" onclick="window.__toastManager?.dismiss('${toast.id}')">×</button>
-    `;
+    // Build DOM manually so user-supplied title/message cannot inject HTML.
+    const iconEl = document.createElement('div');
+    iconEl.className = 'toast-icon';
+    iconEl.textContent = icons[toast.type] ?? '';
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'toast-content';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'toast-title';
+    titleEl.textContent = toast.title;
+
+    const messageEl = document.createElement('div');
+    messageEl.className = 'toast-message';
+    messageEl.textContent = toast.message;
+
+    contentEl.appendChild(titleEl);
+    contentEl.appendChild(messageEl);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => this.dismiss(toast.id));
+
+    el.appendChild(iconEl);
+    el.appendChild(contentEl);
+    el.appendChild(closeBtn);
 
     this.container.appendChild(el);
-
-    // Expose dismiss method globally for onclick
-    (window as any).__toastManager = this;
 
     // Trigger animation
     requestAnimationFrame(() => {

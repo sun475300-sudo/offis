@@ -85,6 +85,19 @@ export class FaultTolerance {
       };
     }
 
+    // Honor fail_fast mode: once an operation has exceeded its error
+    // budget, short-circuit immediately instead of attempting fn()
+    // again. Previously shouldFailFast existed but execute() never
+    // consulted it, so configure({ mode: 'fail_fast' }) did nothing.
+    if (this.shouldFailFast(operationId)) {
+      return {
+        success: false,
+        error: 'Fail-fast threshold exceeded',
+        fallbackUsed: false,
+        executionTime: Date.now() - startTime
+      };
+    }
+
     try {
       const timeout = operation.timeout || this.config.timeout;
       const result = await this.executeWithTimeout(operation.fn, timeout);
@@ -129,17 +142,31 @@ export class FaultTolerance {
   }
 
   private async executeWithTimeout<T>(fn: () => Promise<T>, timeout: number): Promise<T> {
-    return Promise.race([
-      fn(),
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
-      )
-    ]);
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        fn(),
+        new Promise<T>((_, reject) => {
+          timerId = setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout);
+        }),
+      ]);
+    } finally {
+      // Cancel the timeout once the race settles so a flood of short,
+      // successful operations doesn't leave pending timers behind.
+      if (timerId !== undefined) clearTimeout(timerId);
+    }
   }
 
   private recordFault(operationId: string, operationName: string, error: string): void {
     const count = this.errorCounts.get(operationId) || 0;
     this.errorCounts.set(operationId, count + 1);
+
+    const operation = this.operations.get(operationId);
+    // Only mark as handled when a fallback is both enabled *and*
+    // actually exists for this operation. Previously the flag mirrored
+    // config.fallbackEnabled blindly, making recoveryRate look healthy
+    // even when no fallback could run.
+    const handled = !!(this.config.fallbackEnabled && operation?.fallback);
 
     const event: FaultEvent = {
       id: `fault-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -147,7 +174,7 @@ export class FaultTolerance {
       operationName,
       timestamp: Date.now(),
       error,
-      handled: this.config.fallbackEnabled
+      handled,
     };
 
     this.faultEvents.push(event);

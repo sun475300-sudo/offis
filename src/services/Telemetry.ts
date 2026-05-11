@@ -52,7 +52,12 @@ export class Telemetry {
 
   private startAutoFlush(): void {
     if (this.flushInterval) clearInterval(this.flushInterval);
-    this.flushInterval = window.setInterval(() => this.flush(), this.config.flushInterval);
+    // flush() returns a Promise — without a catch, any rejection here
+    // becomes an unhandled rejection. Swallow with a log so the timer
+    // keeps running for the next tick.
+    this.flushInterval = window.setInterval(() => {
+      this.flush().catch(e => console.error('[Telemetry] flush failed:', e));
+    }, this.config.flushInterval);
   }
 
   emit(type: TelemetryEventType, name: string, payload: Record<string, unknown>, source = 'system', level?: TelemetryEvent['level']): void {

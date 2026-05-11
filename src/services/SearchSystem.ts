@@ -68,14 +68,17 @@ export class SearchSystem {
       { id: '/help', title: '도움말', subtitle: 'Show help' }
     ];
 
+    // Normalize once so title matching is case-insensitive and the exact
+    // match scoring actually fires when the user types the id in any case.
+    const q = query.toLowerCase();
     return commands
-      .filter(c => c.id.toLowerCase().includes(query.toLowerCase()) || c.title.includes(query))
+      .filter(c => c.id.toLowerCase().includes(q) || c.title.toLowerCase().includes(q))
       .map(c => ({
         id: c.id,
         type: 'command' as const,
         title: c.title,
         subtitle: c.subtitle,
-        score: query === c.id.toLowerCase() ? 1 : 0.5,
+        score: q === c.id.toLowerCase() ? 1 : 0.5,
         data: c
       }));
   }

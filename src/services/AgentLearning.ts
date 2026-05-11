@@ -89,6 +89,7 @@ export class AgentLearning {
         type,
         successCount: 0,
         totalCount: 0,
+        feedbackCount: 0,
         avgFeedback: 0,
         lastUpdated: Date.now()
       });
@@ -100,9 +101,14 @@ export class AgentLearning {
       model.successCount = (model.successCount as number) + 1;
     }
     if (record.feedback !== undefined) {
+      // Track feedbackCount independently; previously the running average
+      // used totalCount, so records submitted without feedback still
+      // "diluted" the average to zero.
+      const prevFeedbackCount = (model.feedbackCount as number) ?? 0;
+      const newFeedbackCount = prevFeedbackCount + 1;
       const currentAvg = model.avgFeedback as number;
-      const count = model.totalCount as number;
-      model.avgFeedback = (currentAvg * (count - 1) + record.feedback) / count;
+      model.avgFeedback = (currentAvg * prevFeedbackCount + record.feedback) / newFeedbackCount;
+      model.feedbackCount = newFeedbackCount;
     }
     model.lastUpdated = Date.now();
   }
@@ -189,13 +195,26 @@ export class AgentLearning {
   import(json: string): boolean {
     try {
       const data = JSON.parse(json);
+      if (!data || typeof data !== 'object') return false;
+
+      // Stage valid entries before mutating state. Previously a single
+      // malformed key could leave records in a half-imported state.
+      const staged = new Map<string, { records: LearningRecord[]; model?: Record<string, unknown> }>();
+      for (const [agentId, agentData] of Object.entries(data)) {
+        if (!agentData || typeof agentData !== 'object') continue;
+        const ad = agentData as { records?: unknown; model?: unknown };
+        if (!Array.isArray(ad.records)) continue;
+        staged.set(agentId, {
+          records: ad.records as LearningRecord[],
+          model: (ad.model && typeof ad.model === 'object') ? ad.model as Record<string, unknown> : undefined,
+        });
+      }
+
       this.records.clear();
       this.models.clear();
-
-      for (const [agentId, agentData] of Object.entries(data)) {
-        const ad = agentData as { records: LearningRecord[]; model: Record<string, unknown> };
-        this.records.set(agentId, ad.records);
-        if (ad.model) this.models.set(agentId, ad.model);
+      for (const [agentId, entry] of staged) {
+        this.records.set(agentId, entry.records);
+        if (entry.model) this.models.set(agentId, entry.model);
       }
       return true;
     } catch {

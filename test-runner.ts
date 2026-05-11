@@ -2,8 +2,8 @@
  * Pixel Office Test Suite - Automated Testing
  */
 
-import { testSuite } from '../src/services/TestSuite';
-import { agentPersona } from '../src/services/FeatureServices';
+import { testSuite } from './src/services/TestSuite';
+import { agentPersona } from './src/services/FeatureServices';
 
 // ============================================
 // Test Runner
@@ -76,7 +76,7 @@ const unitTests: TestCase[] = [
   {
     name: 'LLMService 생성',
     fn: () => {
-      const { LLMService } = require('./services/LLMService');
+      const { LLMService } = require('./src/services/LLMService');
       const service = new LLMService({ provider: 'mock' });
       return service !== null;
     }
