@@ -12,7 +12,7 @@ import { DebateManager } from '../debate/DebateManager';
 import { RunnerManager, FeedbackLoopState } from '../debate/RunnerManager';
 import { GitHubService } from '../services/GitHubService';
 import { AgentRole, AgentState, EventType, TaskPriority, TaskStatus } from '../types';
-import { testSuite, StressTestConfig, systemReport } from '../services/TestSuite';
+import { testSuite, StressTestConfig } from '../services/TestSuite';
 import { agentPersona, taskQueue, snippetManager, themeManager, configManager, resourceMonitor, collaborationHub } from '../services/FeatureServices';
 import { getHarness, getHarnessSummary, buildSystemPrompt, sessionManager } from '../services/AgentHarness';
 
