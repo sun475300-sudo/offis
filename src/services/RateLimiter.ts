@@ -60,14 +60,19 @@ export class RateLimiter {
     const now = Date.now();
 
     if (!record || now >= record.resetTime) {
+      // Window reset (or first ever call). Count THIS call against the
+      // fresh budget — previously the first call after each reset was
+      // free, so polling check() at the right moment let a caller burn
+      // through maxRequests+1 in a single window.
       const newRecord: RateLimitRecord = {
         key,
-        count: 0,
+        count: 1,
         resetTime: now + config.windowMs,
         blocked: false
       };
       this.records.set(key, newRecord);
-      return { allowed: true, remaining: config.maxRequests, resetIn: config.windowMs };
+      this.notifyListeners(key, true);
+      return { allowed: true, remaining: config.maxRequests - 1, resetIn: config.windowMs };
     }
 
     if (record.blocked) {
