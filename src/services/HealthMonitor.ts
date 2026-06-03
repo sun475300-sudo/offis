@@ -82,6 +82,11 @@ export class HealthMonitor {
   }
 
   unregisterAgent(agentId: string): boolean {
+    // Also drop the agent's lastAlertedStatus entry — otherwise the
+    // (unregister -> re-register) cycle leaves stale state behind and a
+    // re-registered agent that comes back unhealthy may not get the
+    // initial transition alert because the old status is still recorded.
+    this.lastAlertedStatus.delete(agentId);
     return this.agentHealth.delete(agentId);
   }
 
