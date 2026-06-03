@@ -145,12 +145,19 @@ export class AnalyticsEngine {
         case 'sum':
           value = bucketValues.reduce((a, b) => a + b, 0);
           break;
-        case 'min':
-          value = Math.min(...bucketValues);
+        case 'min': {
+          // Avoid Math.min(...arr) spread overflow on large buckets.
+          let m = Infinity;
+          for (const v of bucketValues) if (v < m) m = v;
+          value = m;
           break;
-        case 'max':
-          value = Math.max(...bucketValues);
+        }
+        case 'max': {
+          let m = -Infinity;
+          for (const v of bucketValues) if (v > m) m = v;
+          value = m;
           break;
+        }
         case 'count':
           value = bucketValues.length;
           break;
