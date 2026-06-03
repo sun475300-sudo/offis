@@ -97,6 +97,12 @@ export class CircuitBreaker {
 
     if (circuit.state === 'half_open') {
       this.transitionState(circuitId, 'open');
+      // Reset nextAttempt so the circuit waits a full resetTimeout
+      // before going back to half_open. Previously only the closed->open
+      // path set nextAttempt; on the half_open->open transition the
+      // stale (possibly past) nextAttempt let canExecute reopen the
+      // gate on the very next call.
+      circuit.nextAttempt = Date.now() + cfg.resetTimeout;
     } else if (circuit.failures >= cfg.failureThreshold) {
       this.transitionState(circuitId, 'open');
       circuit.nextAttempt = Date.now() + cfg.resetTimeout;
