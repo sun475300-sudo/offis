@@ -116,6 +116,10 @@ export class FaultTolerance {
       if (this.config.fallbackEnabled && operation.fallback) {
         try {
           const fallbackResult = await operation.fallback();
+          // Treat a successful fallback as recovery — reset the error
+          // budget so fail_fast doesn't latch on an operation that
+          // consistently recovers via its fallback.
+          this.errorCounts.set(operationId, 0);
           return {
             success: true,
             result: fallbackResult,
