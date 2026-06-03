@@ -131,6 +131,20 @@ export class WorkflowEngine {
 
     try {
       for (let i = 0; i < workflow.steps.length; i++) {
+        // Honor pauseWorkflow() between steps: poll until the user
+        // resumes (or cancels by deleting / setting failed). Without
+        // this, pauseWorkflow flipped status to 'paused' but the loop
+        // kept executing, making the pause feature a no-op. Read via a
+        // local widened reference so TS doesn't narrow status to the
+        // literal we set above (status mutates from other methods).
+        const liveStatus = () => (workflow as { status: WorkflowStatus }).status;
+        while (liveStatus() === 'paused') {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        if (liveStatus() !== 'running') {
+          return { workflowId: id, success: false, stepsExecuted, error: `Workflow ${liveStatus()}` };
+        }
+
         const step = workflow.steps[i];
         workflow.currentStep = i;
         workflow.updatedAt = Date.now();
