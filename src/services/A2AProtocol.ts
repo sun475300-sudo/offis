@@ -55,6 +55,7 @@ export class A2AProtocol {
   private static instance: A2AProtocol;
   private agentCards: Map<string, AgentCard> = new Map();
   private tasks: Map<string, A2ATask> = new Map();
+  private readonly maxTasks = 1000;
   private messageQueue: A2AMessage[] = [];
   private readonly maxQueueSize = 500;
   private messageHandlers: Map<A2AMessageType, (msg: A2AMessage) => Promise<unknown>> = new Map();
@@ -133,6 +134,26 @@ export class A2AProtocol {
       updatedAt: Date.now()
     };
     this.tasks.set(task.id, task);
+    // Evict oldest terminal-state entries first, then fall back to FIFO.
+    // tasks had no cap; createTask called repeatedly accumulated every
+    // historical task forever.
+    if (this.tasks.size > this.maxTasks) {
+      const toDrop = this.tasks.size - this.maxTasks;
+      const dropKeys: string[] = [];
+      for (const [k, t] of this.tasks) {
+        if (t.status === 'completed' || t.status === 'failed') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.tasks.keys()) {
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) this.tasks.delete(k);
+    }
     return task;
   }
 
