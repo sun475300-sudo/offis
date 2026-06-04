@@ -164,11 +164,12 @@ export class LLMService {
         body: JSON.stringify({
           model: this.config.model || 'claude-sonnet-4-20250514',
           max_tokens: this.config.maxTokens || 512,
-          temperature: this.config.temperature || 0.7,
+          // ?? so an explicit `0` (deterministic) isn't replaced by 0.7.
+          temperature: this.config.temperature ?? 0.7,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
-      
+
       const data = await response.json();
       return data.content?.[0]?.text || this.mockResponse(prompt);
     } catch {
@@ -189,7 +190,7 @@ export class LLMService {
         body: JSON.stringify({
           model: this.config.model || 'gpt-4',
           messages: [{ role: 'user', content: prompt }],
-          temperature: this.config.temperature || 0.7,
+          temperature: this.config.temperature ?? 0.7,
         }),
       });
       
