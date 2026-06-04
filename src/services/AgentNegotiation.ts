@@ -241,8 +241,8 @@ export class AgentNegotiation {
   private notifyListeners(negotiationId: string, negotiation: Negotiation): void {
     const listeners = this.listeners.get(negotiationId);
     if (listeners) {
-      for (const listener of listeners) {
-        listener(negotiation);
+      for (const listener of [...listeners]) {
+        try { listener(negotiation); } catch (e) { console.error('[AgentNegotiation] listener threw:', e); }
       }
     }
   }

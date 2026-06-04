@@ -170,8 +170,8 @@ export class CircuitBreaker {
   private notifyListeners(circuitId: string, event: CircuitEvent): void {
     const listeners = this.listeners.get(circuitId);
     if (listeners) {
-      for (const listener of listeners) {
-        listener(event);
+      for (const listener of [...listeners]) {
+        try { listener(event); } catch (e) { console.error('[CircuitBreaker] listener threw:', e); }
       }
     }
   }

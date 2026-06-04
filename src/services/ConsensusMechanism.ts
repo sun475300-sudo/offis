@@ -267,8 +267,8 @@ export class ConsensusMechanism {
   private notifyListeners(decisionId: string, decision: ConsensusDecision): void {
     const listeners = this.listeners.get(decisionId);
     if (listeners) {
-      for (const listener of listeners) {
-        listener(decision);
+      for (const listener of [...listeners]) {
+        try { listener(decision); } catch (e) { console.error('[ConsensusMechanism] listener threw:', e); }
       }
     }
   }
