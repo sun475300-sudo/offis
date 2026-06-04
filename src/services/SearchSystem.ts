@@ -33,8 +33,6 @@ export class SearchSystem {
     const limit = options.limit || 20;
     const queryLower = query.toLowerCase();
 
-    this.recordQuery(query);
-
     if (!options.types || options.types.includes('agent')) {
       results.push(...this.searchAgents(queryLower, options));
     }
@@ -46,7 +44,12 @@ export class SearchSystem {
     }
 
     results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit);
+    const trimmed = results.slice(0, limit);
+    // Record AFTER computing results so the stored `results` count is
+    // meaningful. Previously recordQuery ran first and always stored 0,
+    // making the history's results count useless.
+    this.recordQuery(query, trimmed.length);
+    return trimmed;
   }
 
   private searchAgents(query: string, options: SearchOptions): SearchResult[] {
@@ -83,8 +86,8 @@ export class SearchSystem {
       }));
   }
 
-  private recordQuery(query: string): void {
-    this.history.unshift({ query, timestamp: Date.now(), results: 0 });
+  private recordQuery(query: string, results = 0): void {
+    this.history.unshift({ query, timestamp: Date.now(), results });
     if (this.history.length > this.maxHistory) {
       this.history.pop();
     }
