@@ -222,8 +222,8 @@ export class SelfHealing {
   }
 
   private notifyListeners(event: RecoveryEvent): void {
-    for (const listener of this.listeners) {
-      listener(event);
+    for (const listener of [...this.listeners]) {
+      try { listener(event); } catch (e) { console.error('[SelfHealing] listener threw:', e); }
     }
   }
 

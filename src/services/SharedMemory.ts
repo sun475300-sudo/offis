@@ -164,8 +164,10 @@ export class SharedMemory {
   }
 
   private notifyListeners(entry: MemoryEntry): void {
-    for (const listener of this.listeners) {
-      listener(entry);
+    // Snapshot + try/catch so a re-entrant subscribe/unsubscribe can't
+    // shift the cursor and a throwing listener can't abort the fan-out.
+    for (const listener of [...this.listeners]) {
+      try { listener(entry); } catch (e) { console.error('[SharedMemory] listener threw:', e); }
     }
   }
 

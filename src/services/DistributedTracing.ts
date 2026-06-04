@@ -170,8 +170,8 @@ export class DistributedTracing {
   }
 
   private notifyListeners(span: TraceSpan): void {
-    for (const listener of this.listeners) {
-      listener(span);
+    for (const listener of [...this.listeners]) {
+      try { listener(span); } catch (e) { console.error('[DistributedTracing] listener threw:', e); }
     }
   }
 

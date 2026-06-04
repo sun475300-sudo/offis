@@ -175,8 +175,8 @@ export class NotificationCenter {
   }
 
   private notifyListeners(notification: Notification): void {
-    for (const listener of this.listeners) {
-      listener(notification);
+    for (const listener of [...this.listeners]) {
+      try { listener(notification); } catch (e) { console.error('[NotificationCenter] listener threw:', e); }
     }
   }
 

@@ -130,8 +130,8 @@ export class Telemetry {
   }
 
   private notifyListeners(events: TelemetryEvent[]): void {
-    for (const listener of this.listeners) {
-      listener(events);
+    for (const listener of [...this.listeners]) {
+      try { listener(events); } catch (e) { console.error('[Telemetry] listener threw:', e); }
     }
   }
 

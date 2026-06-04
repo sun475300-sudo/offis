@@ -190,8 +190,8 @@ export class RateLimiter {
   }
 
   private notifyListeners(key: string, allowed: boolean): void {
-    for (const listener of this.listeners) {
-      listener(key, allowed);
+    for (const listener of [...this.listeners]) {
+      try { listener(key, allowed); } catch (e) { console.error('[RateLimiter] listener threw:', e); }
     }
   }
 

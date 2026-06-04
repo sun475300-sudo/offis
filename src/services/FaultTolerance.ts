@@ -206,8 +206,8 @@ export class FaultTolerance {
   }
 
   private notifyListeners(event: FaultEvent): void {
-    for (const listener of this.listeners) {
-      listener(event);
+    for (const listener of [...this.listeners]) {
+      try { listener(event); } catch (e) { console.error('[FaultTolerance] listener threw:', e); }
     }
   }
 

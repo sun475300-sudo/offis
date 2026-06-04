@@ -230,8 +230,8 @@ export class HealthMonitor {
   }
 
   private notifyListeners(alert: HealthAlert): void {
-    for (const listener of this.listeners) {
-      listener(alert);
+    for (const listener of [...this.listeners]) {
+      try { listener(alert); } catch (e) { console.error('[HealthMonitor] listener threw:', e); }
     }
   }
 

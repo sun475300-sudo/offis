@@ -171,8 +171,8 @@ export class EventSourcing {
   }
 
   private notifyListeners(event: Event): void {
-    for (const listener of this.listeners) {
-      listener(event);
+    for (const listener of [...this.listeners]) {
+      try { listener(event); } catch (e) { console.error('[EventSourcing] listener threw:', e); }
     }
   }
 

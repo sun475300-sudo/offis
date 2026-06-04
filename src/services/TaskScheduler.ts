@@ -151,8 +151,8 @@ export class TaskScheduler {
   }
 
   private notifyListeners(task: ScheduledTask): void {
-    for (const listener of this.listeners) {
-      listener(task);
+    for (const listener of [...this.listeners]) {
+      try { listener(task); } catch (e) { console.error('[TaskScheduler] listener threw:', e); }
     }
   }
 

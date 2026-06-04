@@ -171,8 +171,8 @@ export class StatePersistence {
   }
 
   private notifyListeners(state: PersistedState): void {
-    for (const listener of this.listeners) {
-      listener(state);
+    for (const listener of [...this.listeners]) {
+      try { listener(state); } catch (e) { console.error('[StatePersistence] listener threw:', e); }
     }
   }
 
