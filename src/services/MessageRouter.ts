@@ -234,6 +234,11 @@ export class MessageRouter {
 
   clearBuffer(): void {
     this.messageBuffer = [];
+    // deliveryRecords is keyed by message.id and was only pruned in
+    // step with messageBuffer eviction in send(). clearBuffer reset the
+    // buffer but left every historical delivery record behind — a
+    // permanent leak once clearBuffer was called.
+    this.deliveryRecords.clear();
   }
 
   getBufferSize(): number {
