@@ -73,6 +73,14 @@ export class ResourcePool {
   }
 
   allocate(request: ResourceRequest): ResourceAllocation | null {
+    // Reject invalid amounts up front. Without this, amount <= 0 was
+    // silently allowed: findAvailableResources's check
+    // `capacity - used >= amount` matches everything for amount=0 and
+    // for any negative amount, letting a caller "allocate" -5 and
+    // shrink resource.used by 5.
+    if (!Number.isFinite(request.amount) || request.amount <= 0) {
+      return null;
+    }
     const available = this.findAvailableResources(request.resourceType, request.amount);
     if (!available.length) {
       this.pendingRequests.push(request);
