@@ -21,7 +21,9 @@ export class EventBus implements IEventBus {
 
     const handlers = this.listeners.get(type);
     if (handlers) {
-      for (const handler of handlers) {
+      // Snapshot so a handler that calls on()/off() during dispatch
+      // can't shift the cursor or skip later handlers.
+      for (const handler of [...handlers]) {
         try {
           handler(event);
         } catch (err) {
