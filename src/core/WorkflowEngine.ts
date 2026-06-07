@@ -35,6 +35,7 @@ export interface WorkflowResult {
 export class WorkflowEngine {
   private static instance: WorkflowEngine;
   private workflows: Map<string, Workflow> = new Map();
+  private readonly maxWorkflows = 500;
   private activeWorkflows: Set<string> = new Set();
   private stepHandlers: Map<string, (params: Record<string, unknown>, context: Record<string, unknown>) => Promise<unknown>> = new Map();
 
@@ -105,6 +106,27 @@ export class WorkflowEngine {
       context: {}
     };
     this.workflows.set(id, workflow);
+    // Evict terminal-state workflows first (completed/failed), then
+    // FIFO, but never touch one that's mid-run.
+    if (this.workflows.size > this.maxWorkflows) {
+      const toDrop = this.workflows.size - this.maxWorkflows;
+      const dropKeys: string[] = [];
+      for (const [k, w] of this.workflows) {
+        if (this.activeWorkflows.has(k)) continue;
+        if (w.status === 'completed' || w.status === 'failed') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.workflows.keys()) {
+          if (this.activeWorkflows.has(k)) continue;
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) this.workflows.delete(k);
+    }
     return workflow;
   }
 
