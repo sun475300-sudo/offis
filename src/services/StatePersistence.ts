@@ -34,7 +34,16 @@ export class StatePersistence {
 
   private constructor() {
     this.loadFromStorage();
-    window.addEventListener('beforeunload', () => this.saveToStorage());
+    window.addEventListener('beforeunload', () => {
+      // If a debounced write is pending, cancel it; we're about to
+      // flush synchronously anyway and don't want it to refire on a
+      // resurrected tab (bfcache).
+      if (this.persistHandle !== null) {
+        clearTimeout(this.persistHandle);
+        this.persistHandle = null;
+      }
+      this.saveToStorage();
+    });
   }
 
   // Debounced handle for the auto-persist timer. localStorage writes are
