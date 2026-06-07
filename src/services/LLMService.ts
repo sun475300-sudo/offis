@@ -152,7 +152,7 @@ export class LLMService {
 
   private async callClaudeSimple(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -170,16 +170,23 @@ export class LLMService {
         }),
       });
 
+      if (!response.ok) {
+        // Log non-2xx so dev can see rate-limit / auth failures instead
+        // of silently degrading to mock output.
+        console.warn(`[LLMService] Claude API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.content?.[0]?.text || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] Claude API call failed:', e);
       return this.mockResponse(prompt);
     }
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -193,17 +200,22 @@ export class LLMService {
           temperature: this.config.temperature ?? 0.7,
         }),
       });
-      
+
+      if (!response.ok) {
+        console.warn(`[LLMService] OpenAI API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] OpenAI API call failed:', e);
       return this.mockResponse(prompt);
     }
   }
 
   private async callMinimaxSimple(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.minimax.chat/v1/text/chatcompletion_pro', {
         method: 'POST',
@@ -216,10 +228,15 @@ export class LLMService {
           messages: [{ role: 'user', content: prompt }],
         }),
       });
-      
+
+      if (!response.ok) {
+        console.warn(`[LLMService] Minimax API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] Minimax API call failed:', e);
       return this.mockResponse(prompt);
     }
   }
