@@ -43,6 +43,12 @@ export interface CLIContext {
 export function registerAllCommands(ctx: CLIContext): void {
   const { cliEngine, agentManager, orchestrator, camera, soundManager, toastManager, collaborationSystem, chatSystem, debateManager, runnerManager, gitHubService, logSystem } = ctx;
 
+  // Track per-room auto-deactivate timers so a subsequent /meeting
+  // call that activates the same room can cancel the prior timer.
+  // Without this, the old setTimeout still fired after 5 minutes and
+  // deactivated a freshly-activated room mid-meeting.
+  const roomDeactivateTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   cliEngine.registerCommand({
     name: 'help',
     aliases: ['h', '도움말'],
@@ -140,8 +146,15 @@ export function registerAllCommands(ctx: CLIContext): void {
         if (meetingRoomRenderer) {
           const roomId = meetingType === MeetingType.VideoConference ? 'video-room' : 'main-conf';
           meetingRoomRenderer.activateRoom(roomId, meeting.participants);
-          // Auto-deactivate after 5 minutes
-          setTimeout(() => meetingRoomRenderer.deactivateRoom(roomId), 5 * 60 * 1000);
+          // Auto-deactivate after 5 minutes; cancel any earlier pending
+          // timer for the same room first.
+          const prevTimer = roomDeactivateTimers.get(roomId);
+          if (prevTimer !== undefined) clearTimeout(prevTimer);
+          const timer = setTimeout(() => {
+            meetingRoomRenderer.deactivateRoom(roomId);
+            roomDeactivateTimers.delete(roomId);
+          }, 5 * 60 * 1000);
+          roomDeactivateTimers.set(roomId, timer);
         }
         if (meetingType === MeetingType.VideoConference) {
           toastManager.info('Video Meeting', `화상 회의 시작: ${meeting.participants.length}명 참가`);
