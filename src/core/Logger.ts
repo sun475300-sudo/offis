@@ -197,6 +197,9 @@ export class Logger {
   clear(): void {
     this.logs = [];
     this.logQueue = [];
+    // sources is rebuilt by log(); clearing here keeps getSources() in
+    // sync with the actual log contents.
+    this.sources.clear();
   }
 
   exportLogs(): string {
