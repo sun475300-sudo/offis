@@ -164,7 +164,11 @@ export class A2AProtocol {
   updateTask(taskId: string, updates: Partial<A2ATask>): A2ATask | undefined {
     const task = this.tasks.get(taskId);
     if (task) {
-      Object.assign(task, updates, { updatedAt: Date.now() });
+      // Object.assign would happily overwrite task.id if the caller
+      // passed one in updates, leaving the Map key out of sync with the
+      // record's id. Strip id from the update set.
+      const { id: _ignoredId, ...safeUpdates } = updates;
+      Object.assign(task, safeUpdates, { updatedAt: Date.now() });
     }
     return task;
   }
