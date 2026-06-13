@@ -65,8 +65,13 @@ export class GitHubService {
   private baseUrl: string = 'https://api.github.com';
 
   constructor() {
-    // Auto-detect GitHub token from Vite environment
-    const envToken = (import.meta as any).env?.VITE_GITHUB_TOKEN;
+    // Auto-detect GitHub token from Vite environment. Trim because
+    // trailing whitespace or quotes in .env silently break the
+    // Authorization header.
+    const raw = (import.meta as any).env?.VITE_GITHUB_TOKEN;
+    const envToken = typeof raw === 'string'
+      ? raw.trim().replace(/^['"]|['"]$/g, '')
+      : '';
     if (envToken) {
       this.token = envToken;
       console.log('[GitHubService] 🟢 Auto-detected GITHUB_TOKEN — real API enabled');
@@ -76,7 +81,11 @@ export class GitHubService {
   }
 
   setToken(token: string): void {
-    this.token = token;
+    // Same cleanup as constructor so paste-from-clipboard tokens
+    // (which often pick up surrounding whitespace) work.
+    this.token = typeof token === 'string'
+      ? token.trim().replace(/^['"]|['"]$/g, '')
+      : '';
   }
 
   isAuthenticated(): boolean {

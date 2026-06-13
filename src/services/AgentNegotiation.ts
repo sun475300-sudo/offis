@@ -89,6 +89,29 @@ export class AgentNegotiation {
     };
 
     this.negotiations.set(id, negotiation);
+    // Cap negotiations map: cleanup() exists but is never scheduled, so
+    // startNegotiation accumulated entries forever. Prefer terminal-state
+    // entries for eviction, fall back to FIFO.
+    if (this.negotiations.size > 300) {
+      const toDrop = this.negotiations.size - 300;
+      const dropKeys: string[] = [];
+      for (const [k, n] of this.negotiations) {
+        if (n.status === 'accepted' || n.status === 'rejected' || n.status === 'cancelled') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.negotiations.keys()) {
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) {
+        this.negotiations.delete(k);
+        this.listeners.delete(k);
+      }
+    }
 
     const offer = this.createOffer(id, participants[0], initialTerms);
     negotiation.currentOffer = offer;
@@ -218,8 +241,8 @@ export class AgentNegotiation {
   private notifyListeners(negotiationId: string, negotiation: Negotiation): void {
     const listeners = this.listeners.get(negotiationId);
     if (listeners) {
-      for (const listener of listeners) {
-        listener(negotiation);
+      for (const listener of [...listeners]) {
+        try { listener(negotiation); } catch (e) { console.error('[AgentNegotiation] listener threw:', e); }
       }
     }
   }

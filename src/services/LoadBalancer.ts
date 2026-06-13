@@ -206,8 +206,8 @@ export class LoadBalancer {
   }
 
   private notifyListeners(endpoint: AgentEndpoint): void {
-    for (const listener of this.listeners) {
-      listener(endpoint);
+    for (const listener of [...this.listeners]) {
+      try { listener(endpoint); } catch (e) { console.error('[LoadBalancer] listener threw:', e); }
     }
   }
 

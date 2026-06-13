@@ -66,13 +66,20 @@ export class LLMService {
   private decisionHistory: { prompt: string; decision: string; timestamp: number }[] = [];
 
   constructor(config?: LLMServiceConfig) {
-    // Auto-detect API keys from Vite env variables
-    const anthropicKey = (import.meta as any).env?.VITE_ANTHROPIC_API_KEY;
-    const openaiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
-    const minimaxKey = (import.meta as any).env?.VITE_MINIMAX_API_KEY;
+    // Auto-detect API keys from Vite env variables. Trim so trailing
+    // whitespace or accidental quotes in .env don't break the
+    // Authorization header (which silently 401s).
+    const trim = (k: unknown): string | undefined => {
+      if (typeof k !== 'string') return undefined;
+      const trimmed = k.trim().replace(/^['"]|['"]$/g, '');
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+    const anthropicKey = trim((import.meta as any).env?.VITE_ANTHROPIC_API_KEY);
+    const openaiKey = trim((import.meta as any).env?.VITE_OPENAI_API_KEY);
+    const minimaxKey = trim((import.meta as any).env?.VITE_MINIMAX_API_KEY);
 
     if (config) {
-      this.config = config;
+      this.config = { ...config, apiKey: trim(config.apiKey) };
     } else if (anthropicKey) {
       this.config = { provider: 'claude', apiKey: anthropicKey };
       console.log('[LLMService] 🟢 Auto-detected Anthropic key — using Claude API');
@@ -152,7 +159,7 @@ export class LLMService {
 
   private async callClaudeSimple(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -164,21 +171,29 @@ export class LLMService {
         body: JSON.stringify({
           model: this.config.model || 'claude-sonnet-4-20250514',
           max_tokens: this.config.maxTokens || 512,
-          temperature: this.config.temperature || 0.7,
+          // ?? so an explicit `0` (deterministic) isn't replaced by 0.7.
+          temperature: this.config.temperature ?? 0.7,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
-      
+
+      if (!response.ok) {
+        // Log non-2xx so dev can see rate-limit / auth failures instead
+        // of silently degrading to mock output.
+        console.warn(`[LLMService] Claude API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.content?.[0]?.text || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] Claude API call failed:', e);
       return this.mockResponse(prompt);
     }
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -189,20 +204,25 @@ export class LLMService {
         body: JSON.stringify({
           model: this.config.model || 'gpt-4',
           messages: [{ role: 'user', content: prompt }],
-          temperature: this.config.temperature || 0.7,
+          temperature: this.config.temperature ?? 0.7,
         }),
       });
-      
+
+      if (!response.ok) {
+        console.warn(`[LLMService] OpenAI API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] OpenAI API call failed:', e);
       return this.mockResponse(prompt);
     }
   }
 
   private async callMinimaxSimple(prompt: string): Promise<string> {
     if (!this.config.apiKey) return this.mockResponse(prompt);
-    
+
     try {
       const response = await fetch(this.config.endpoint || 'https://api.minimax.chat/v1/text/chatcompletion_pro', {
         method: 'POST',
@@ -215,10 +235,15 @@ export class LLMService {
           messages: [{ role: 'user', content: prompt }],
         }),
       });
-      
+
+      if (!response.ok) {
+        console.warn(`[LLMService] Minimax API ${response.status} ${response.statusText}`);
+        return this.mockResponse(prompt);
+      }
       const data = await response.json();
       return data.choices?.[0]?.message?.content || this.mockResponse(prompt);
-    } catch {
+    } catch (e) {
+      console.warn('[LLMService] Minimax API call failed:', e);
       return this.mockResponse(prompt);
     }
   }

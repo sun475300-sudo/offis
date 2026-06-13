@@ -39,6 +39,7 @@ export interface ConsensusResult {
 export class ConsensusMechanism {
   private static instance: ConsensusMechanism;
   private decisions: Map<string, ConsensusDecision> = new Map();
+  private readonly maxDecisions = 500;
   private listeners: Map<string, Set<(decision: ConsensusDecision) => void>> = new Map();
   private defaultAlgorithm: ConsensusAlgorithm = 'majority';
   private defaultMinVotes = 1;
@@ -87,6 +88,29 @@ export class ConsensusMechanism {
     };
 
     this.decisions.set(decision.id, decision);
+    // Evict oldest terminal-state decisions first, then FIFO. There was
+    // a cleanup() method but nothing called it on a schedule, so the
+    // map grew with every createProposal call.
+    if (this.decisions.size > this.maxDecisions) {
+      const toDrop = this.decisions.size - this.maxDecisions;
+      const dropKeys: string[] = [];
+      for (const [k, d] of this.decisions) {
+        if (d.state === 'reached' || d.state === 'failed' || d.state === 'cancelled') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.decisions.keys()) {
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) {
+        this.decisions.delete(k);
+        this.listeners.delete(k);
+      }
+    }
     return decision;
   }
 
@@ -243,8 +267,8 @@ export class ConsensusMechanism {
   private notifyListeners(decisionId: string, decision: ConsensusDecision): void {
     const listeners = this.listeners.get(decisionId);
     if (listeners) {
-      for (const listener of listeners) {
-        listener(decision);
+      for (const listener of [...listeners]) {
+        try { listener(decision); } catch (e) { console.error('[ConsensusMechanism] listener threw:', e); }
       }
     }
   }

@@ -357,7 +357,8 @@ export class TestSuite {
       const stored = localStorage.getItem('test_history');
       if (stored) {
         try {
-          this.history = JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) this.history = parsed;
         } catch {}
       }
     }
@@ -409,7 +410,8 @@ export class TestSuite {
     const stored = localStorage.getItem('test_schedules');
     if (stored) {
       try {
-        this.schedules = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) this.schedules = parsed;
       } catch {}
     }
   }
@@ -464,7 +466,9 @@ export class TestSuite {
     if (stored) {
       try {
         const custom = JSON.parse(stored);
-        this.customScenarios = [...this.customScenarios.filter(s => !s.id.startsWith('custom-')), ...custom];
+        if (Array.isArray(custom)) {
+          this.customScenarios = [...this.customScenarios.filter(s => !s.id.startsWith('custom-')), ...custom];
+        }
       } catch {}
     }
   }
@@ -527,7 +531,8 @@ export class TestSuite {
     const stored = localStorage.getItem('test_notifications');
     if (stored) {
       try {
-        this.notifications = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) this.notifications = parsed;
       } catch {}
     }
   }
@@ -715,7 +720,8 @@ export class TestSuite {
     const stored = localStorage.getItem('test_templates');
     if (stored) {
       try {
-        this.templates = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) this.templates = parsed;
       } catch {}
     }
   }
@@ -754,7 +760,8 @@ export class TestSuite {
     const stored = localStorage.getItem('test_webhooks');
     if (stored) {
       try {
-        this.webhooks = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) this.webhooks = parsed;
       } catch {}
     }
   }

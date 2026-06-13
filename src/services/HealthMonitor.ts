@@ -14,6 +14,7 @@ export interface AgentHealth {
   lastCheck: number;
   uptime: number;
   errorCount: number;
+  registeredAt?: number;
 }
 
 export interface HealthCheckConfig {
@@ -77,11 +78,17 @@ export class HealthMonitor {
       metrics: [],
       lastCheck: 0,
       uptime: 0,
-      errorCount: 0
+      errorCount: 0,
+      registeredAt: Date.now(),
     });
   }
 
   unregisterAgent(agentId: string): boolean {
+    // Also drop the agent's lastAlertedStatus entry — otherwise the
+    // (unregister -> re-register) cycle leaves stale state behind and a
+    // re-registered agent that comes back unhealthy may not get the
+    // initial transition alert because the old status is still recorded.
+    this.lastAlertedStatus.delete(agentId);
     return this.agentHealth.delete(agentId);
   }
 
@@ -115,7 +122,10 @@ export class HealthMonitor {
     health.metrics = healthMetrics;
     health.status = hasCritical ? 'unhealthy' : hasWarning ? 'degraded' : 'healthy';
     health.lastCheck = Date.now();
-    health.uptime = Date.now() - this.startTime;
+    // Uptime should be measured from when this specific agent
+    // registered, not from when the HealthMonitor singleton started —
+    // otherwise every fresh agent inherits the singleton's age.
+    health.uptime = Date.now() - (health.registeredAt ?? this.startTime);
   }
 
   recordError(agentId: string): void {
@@ -225,8 +235,8 @@ export class HealthMonitor {
   }
 
   private notifyListeners(alert: HealthAlert): void {
-    for (const listener of this.listeners) {
-      listener(alert);
+    for (const listener of [...this.listeners]) {
+      try { listener(alert); } catch (e) { console.error('[HealthMonitor] listener threw:', e); }
     }
   }
 

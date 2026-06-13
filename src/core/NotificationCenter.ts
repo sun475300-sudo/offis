@@ -49,15 +49,20 @@ export class NotificationCenter {
 
   add(type: NotificationType, title: string, message: string, options?: Partial<Notification>): string {
     const id = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Spread options first, then enforce the generated id/type/title/
+    // message last. Previously a caller passing { id: 'custom' } would
+    // override our id field on the notification while the Map key still
+    // used the generated id — get(notification.id) then returned
+    // undefined for items added via the public API.
     const notification: Notification = {
+      timestamp: Date.now(),
+      read: false,
+      pinned: false,
+      ...options,
       id,
       type,
       title,
       message,
-      timestamp: Date.now(),
-      read: false,
-      pinned: false,
-      ...options
     };
 
     if (this.notifications.size >= this.maxNotifications) {
@@ -170,8 +175,8 @@ export class NotificationCenter {
   }
 
   private notifyListeners(notification: Notification): void {
-    for (const listener of this.listeners) {
-      listener(notification);
+    for (const listener of [...this.listeners]) {
+      try { listener(notification); } catch (e) { console.error('[NotificationCenter] listener threw:', e); }
     }
   }
 

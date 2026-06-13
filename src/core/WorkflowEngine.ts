@@ -35,6 +35,7 @@ export interface WorkflowResult {
 export class WorkflowEngine {
   private static instance: WorkflowEngine;
   private workflows: Map<string, Workflow> = new Map();
+  private readonly maxWorkflows = 500;
   private activeWorkflows: Set<string> = new Set();
   private stepHandlers: Map<string, (params: Record<string, unknown>, context: Record<string, unknown>) => Promise<unknown>> = new Map();
 
@@ -105,6 +106,27 @@ export class WorkflowEngine {
       context: {}
     };
     this.workflows.set(id, workflow);
+    // Evict terminal-state workflows first (completed/failed), then
+    // FIFO, but never touch one that's mid-run.
+    if (this.workflows.size > this.maxWorkflows) {
+      const toDrop = this.workflows.size - this.maxWorkflows;
+      const dropKeys: string[] = [];
+      for (const [k, w] of this.workflows) {
+        if (this.activeWorkflows.has(k)) continue;
+        if (w.status === 'completed' || w.status === 'failed') {
+          dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      if (dropKeys.length < toDrop) {
+        for (const k of this.workflows.keys()) {
+          if (this.activeWorkflows.has(k)) continue;
+          if (!dropKeys.includes(k)) dropKeys.push(k);
+          if (dropKeys.length >= toDrop) break;
+        }
+      }
+      for (const k of dropKeys) this.workflows.delete(k);
+    }
     return workflow;
   }
 
@@ -131,6 +153,20 @@ export class WorkflowEngine {
 
     try {
       for (let i = 0; i < workflow.steps.length; i++) {
+        // Honor pauseWorkflow() between steps: poll until the user
+        // resumes (or cancels by deleting / setting failed). Without
+        // this, pauseWorkflow flipped status to 'paused' but the loop
+        // kept executing, making the pause feature a no-op. Read via a
+        // local widened reference so TS doesn't narrow status to the
+        // literal we set above (status mutates from other methods).
+        const liveStatus = () => (workflow as { status: WorkflowStatus }).status;
+        while (liveStatus() === 'paused') {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        if (liveStatus() !== 'running') {
+          return { workflowId: id, success: false, stepsExecuted, error: `Workflow ${liveStatus()}` };
+        }
+
         const step = workflow.steps[i];
         workflow.currentStep = i;
         workflow.updatedAt = Date.now();

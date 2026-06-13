@@ -161,6 +161,13 @@ export class Logger {
   }
 
   private startFlushLoop(): void {
+    // Guard against being called twice (configure() could plausibly want
+    // to restart the loop, and destroy() may be called before construct
+    // re-runs in hot-reload scenarios) — otherwise a second invocation
+    // leaks the previous interval.
+    if (this.flushInterval !== null) {
+      clearInterval(this.flushInterval);
+    }
     this.flushInterval = window.setInterval(() => {
       this.flush();
     }, 5000);
@@ -190,6 +197,9 @@ export class Logger {
   clear(): void {
     this.logs = [];
     this.logQueue = [];
+    // sources is rebuilt by log(); clearing here keeps getSources() in
+    // sync with the actual log contents.
+    this.sources.clear();
   }
 
   exportLogs(): string {

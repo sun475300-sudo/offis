@@ -1,6 +1,7 @@
 import {
   AgentState,
   EventType,
+  GameEvent,
   IEventBus,
   ITilemap,
   TaskInfo,
@@ -198,21 +199,31 @@ export class Orchestrator {
     console.log(`[Orchestrator] Assigned "${task.description}" to ${agent.name} (${agent.role})`);
   }
 
+  // Stored handler refs so destroy() can detach them. Without this,
+  // hot-reloading Orchestrator (or instantiating a second one in tests)
+  // left the old handlers wired to the shared event bus.
+  private onTaskCompleted = (event: GameEvent<unknown>) => {
+    const payload = event.payload as { taskId: string; agentId: string };
+    this.taskService.markCompleted(payload.taskId);
+    console.log(`[Orchestrator] Task ${payload.taskId} completed by ${payload.agentId}`);
+    // Dispatch any queued tasks now that an agent is free
+    setTimeout(() => this.dispatchPendingTasks(), 500);
+  };
+  private onTaskFailed = (event: GameEvent<unknown>) => {
+    const payload = event.payload as { taskId: string };
+    this.taskService.markFailed(payload.taskId);
+    console.log(`[Orchestrator] Task ${payload.taskId} failed — will retry on next dispatch`);
+  };
+
   private registerEventHandlers(): void {
-    // When a task completes, try to dispatch remaining pending tasks
-    this.eventBus.on(EventType.TaskCompleted, (event) => {
-      const payload = event.payload as { taskId: string; agentId: string };
-      this.taskService.markCompleted(payload.taskId);
-      console.log(`[Orchestrator] Task ${payload.taskId} completed by ${payload.agentId}`);
+    this.eventBus.on(EventType.TaskCompleted, this.onTaskCompleted);
+    this.eventBus.on(EventType.TaskFailed, this.onTaskFailed);
+  }
 
-      // Dispatch any queued tasks now that an agent is free
-      setTimeout(() => this.dispatchPendingTasks(), 500);
-    });
-
-    this.eventBus.on(EventType.TaskFailed, (event) => {
-      const payload = event.payload as { taskId: string };
-      this.taskService.markFailed(payload.taskId);
-      console.log(`[Orchestrator] Task ${payload.taskId} failed — will retry on next dispatch`);
-    });
+  /** Detach handlers + stop dispatch loop. Idempotent. */
+  destroy(): void {
+    this.stopDispatchLoop();
+    this.eventBus.off(EventType.TaskCompleted, this.onTaskCompleted);
+    this.eventBus.off(EventType.TaskFailed, this.onTaskFailed);
   }
 }

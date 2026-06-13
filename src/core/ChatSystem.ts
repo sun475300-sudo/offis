@@ -41,13 +41,29 @@ export class ChatSystem {
     this.sendMessage(senderId, senderName, senderRole, content, 'debate');
   }
 
-  onMessage(listener: (message: ChatMessage) => void): void {
+  onMessage(listener: (message: ChatMessage) => void): () => void {
     this.listeners.push(listener);
+    // Return unsubscribe so callers can clean up. Previously onMessage
+    // had no removal path, so any caller registering on each render
+    // would leak listeners forever and re-fire each old subscriber.
+    return () => {
+      const idx = this.listeners.indexOf(listener);
+      if (idx >= 0) this.listeners.splice(idx, 1);
+    };
   }
 
   private notifyListeners(message: ChatMessage): void {
-    for (const listener of this.listeners) {
-      listener(message);
+    // Iterate a snapshot so a listener that unsubscribes (or registers a
+    // new listener) during dispatch can't shift the cursor.
+    for (const listener of [...this.listeners]) {
+      try {
+        listener(message);
+      } catch (e) {
+        // A throwing subscriber used to abort the whole fan-out, so
+        // later subscribers silently missed the message. Log and keep
+        // going.
+        console.error('[ChatSystem] listener threw:', e);
+      }
     }
   }
 

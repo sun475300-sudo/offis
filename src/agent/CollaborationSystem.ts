@@ -211,7 +211,10 @@ export class CollaborationSystem {
 
     for (const [id, session] of this.pairSessions) {
       const driver = this.agentManager.getAgent(session.driverId);
-      if (driver && driver.isIdle()) {
+      // Delete when driver is idle (session finished) OR the driver was
+      // removed from the manager entirely. The previous check left
+      // sessions referencing deleted agents pinned forever.
+      if (!driver || driver.isIdle()) {
         this.pairSessions.delete(id);
       }
     }

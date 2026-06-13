@@ -95,7 +95,10 @@ export class CapabilityRegistry {
 
     for (const capability of this.capabilities.values()) {
       if (query.category && capability.category !== query.category) continue;
-      if (query.minConfidence && capability.confidence < query.minConfidence) continue;
+      // `query.minConfidence && ...` short-circuits on the legitimate
+      // value 0, so passing minConfidence: 0 was equivalent to passing
+      // no filter at all. Distinguish undefined from 0.
+      if (query.minConfidence !== undefined && capability.confidence < query.minConfidence) continue;
 
       let keywordMatch = true;
       if (query.keywords && query.keywords.length > 0) {

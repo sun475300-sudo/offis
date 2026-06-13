@@ -224,8 +224,24 @@ export class ConfigManager {
   importConfig(json: string): boolean {
     try {
       const config = JSON.parse(json);
-      if (config.schedules) config.schedules.forEach((s: any) => testSuite.addSchedule(s.name, s.interval / 60000));
-      if (config.webhooks) config.webhooks.forEach((w: any) => testSuite.addWebhook(w.url, w.events));
+      if (!config || typeof config !== 'object') return false;
+      // Validate each entry instead of blindly forwarding to addSchedule /
+      // addWebhook — a malformed import previously called addSchedule(
+      // undefined, NaN) and silently corrupted the schedule list.
+      if (Array.isArray(config.schedules)) {
+        for (const s of config.schedules) {
+          if (s && typeof s.name === 'string' && typeof s.interval === 'number') {
+            testSuite.addSchedule(s.name, s.interval / 60000);
+          }
+        }
+      }
+      if (Array.isArray(config.webhooks)) {
+        for (const w of config.webhooks) {
+          if (w && typeof w.url === 'string' && Array.isArray(w.events)) {
+            testSuite.addWebhook(w.url, w.events);
+          }
+        }
+      }
       return true;
     } catch {
       return false;

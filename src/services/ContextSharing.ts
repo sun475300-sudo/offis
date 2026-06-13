@@ -121,8 +121,8 @@ export class ContextSharing {
   private notifySubscribers(key: string, value: unknown): void {
     const subs = this.subscriptions.get(key);
     if (subs) {
-      for (const sub of subs) {
-        sub.callback(value);
+      for (const sub of [...subs]) {
+        try { sub.callback(value); } catch (e) { console.error('[ContextSharing] callback threw:', e); }
       }
     }
   }

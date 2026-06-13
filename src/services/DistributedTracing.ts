@@ -99,6 +99,10 @@ export class DistributedTracing {
     }
   }
 
+  // Per-span log cap so a long-running span doesn't accumulate
+  // megabytes of structured logs. Mirrors the maxSpans behavior.
+  private readonly maxLogsPerSpan = 200;
+
   addLog(spanId: string, message: string, fields?: Record<string, unknown>): void {
     const span = this.spans.get(spanId);
     if (span) {
@@ -107,6 +111,9 @@ export class DistributedTracing {
         message,
         fields
       });
+      if (span.logs.length > this.maxLogsPerSpan) {
+        span.logs.splice(0, span.logs.length - this.maxLogsPerSpan);
+      }
     }
   }
 
@@ -163,8 +170,8 @@ export class DistributedTracing {
   }
 
   private notifyListeners(span: TraceSpan): void {
-    for (const listener of this.listeners) {
-      listener(span);
+    for (const listener of [...this.listeners]) {
+      try { listener(span); } catch (e) { console.error('[DistributedTracing] listener threw:', e); }
     }
   }
 

@@ -66,8 +66,8 @@ export class AuditTrail {
       this.entries.shift();
     }
 
-    for (const listener of this.listeners) {
-      listener(entry);
+    for (const listener of [...this.listeners]) {
+      try { listener(entry); } catch (e) { console.error('[AuditTrail] listener threw:', e); }
     }
 
     return id;
@@ -96,8 +96,8 @@ export class AuditTrail {
     if (this.entries.length > this.maxEntries) {
       this.entries.shift();
     }
-    for (const listener of this.listeners) {
-      listener(entry);
+    for (const listener of [...this.listeners]) {
+      try { listener(entry); } catch (e) { console.error('[AuditTrail] listener threw:', e); }
     }
     return id;
   }

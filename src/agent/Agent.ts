@@ -125,6 +125,15 @@ export class Agent {
           reason: 'pathfinding_failed',
         });
         this.currentTask = null;
+        // Also force the state back to Idle. Without this, if the agent
+        // was Working/Moving when assignTask was called, the failed
+        // pathing left it in the old state with no currentTask — the
+        // update loop's "state === Working && currentTask" guard then
+        // skipped any progress, but the agent looked busy to the
+        // dispatcher and never got reassigned.
+        if (this.state !== AgentState.Idle) {
+          this.setState(AgentState.Idle);
+        }
       }
     }
   }

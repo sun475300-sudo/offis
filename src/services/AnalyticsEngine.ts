@@ -145,12 +145,19 @@ export class AnalyticsEngine {
         case 'sum':
           value = bucketValues.reduce((a, b) => a + b, 0);
           break;
-        case 'min':
-          value = Math.min(...bucketValues);
+        case 'min': {
+          // Avoid Math.min(...arr) spread overflow on large buckets.
+          let m = Infinity;
+          for (const v of bucketValues) if (v < m) m = v;
+          value = m;
           break;
-        case 'max':
-          value = Math.max(...bucketValues);
+        }
+        case 'max': {
+          let m = -Infinity;
+          for (const v of bucketValues) if (v > m) m = v;
+          value = m;
           break;
+        }
         case 'count':
           value = bucketValues.length;
           break;
@@ -168,13 +175,24 @@ export class AnalyticsEngine {
     const entries = this.getMetric(name);
     if (entries.length === 0) return null;
 
-    const values = entries.map(e => e.value);
+    // Single pass — Math.min(...values) / Math.max(...values) blow up
+    // past the engine's argument-spread limit on large series, and we
+    // also avoid walking the array three times.
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    for (const e of entries) {
+      const v = e.value;
+      if (v < min) min = v;
+      if (v > max) max = v;
+      sum += v;
+    }
     return {
-      count: values.length,
-      sum: values.reduce((a, b) => a + b, 0),
-      avg: values.reduce((a, b) => a + b, 0) / values.length,
-      min: Math.min(...values),
-      max: Math.max(...values)
+      count: entries.length,
+      sum,
+      avg: sum / entries.length,
+      min,
+      max,
     };
   }
 

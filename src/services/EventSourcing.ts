@@ -122,14 +122,20 @@ export class EventSourcing {
       return this.aggregates.get(aggregateId)!;
     }
 
+    // Preserve the aggregate's actual type from the existing record.
+    // The previous version used firstEvent.type, which is the EVENT
+    // type (e.g. "user.created"), not the aggregate type (e.g. "user").
+    // Replay therefore produced an aggregate whose type was an event
+    // name — every type-based downstream filter then missed it.
+    const existing = this.aggregates.get(aggregateId);
     const firstEvent = events[0];
     let aggregate: Aggregate = {
       id: aggregateId,
-      type: firstEvent.type,
+      type: existing?.type ?? firstEvent.type,
       version: 0,
-      createdAt: firstEvent.timestamp,
+      createdAt: existing?.createdAt ?? firstEvent.timestamp,
       updatedAt: firstEvent.timestamp,
-      state: {}
+      state: existing ? { ...existing.state } : {}
     };
 
     for (const event of events) {
@@ -137,6 +143,11 @@ export class EventSourcing {
         const handler = this.handlers.get(event.type)!;
         aggregate = handler(aggregate, event);
       }
+      // Same invariant we enforce in emit(): always advance version
+      // to event.version, so a handler that forgets to do so doesn't
+      // leave replayed aggregates stuck at version 0.
+      aggregate.version = event.version;
+      aggregate.updatedAt = event.timestamp;
     }
 
     this.aggregates.set(aggregateId, aggregate);
@@ -171,8 +182,8 @@ export class EventSourcing {
   }
 
   private notifyListeners(event: Event): void {
-    for (const listener of this.listeners) {
-      listener(event);
+    for (const listener of [...this.listeners]) {
+      try { listener(event); } catch (e) { console.error('[EventSourcing] listener threw:', e); }
     }
   }
 

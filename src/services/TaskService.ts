@@ -103,6 +103,10 @@ export class TaskService {
     const task = this.tasks.get(taskId);
     if (task) {
       task.status = TaskStatus.InProgress;
+      // Refresh the watchdog pulse so the stale-task check (which
+      // measures inactivity from lastPulse) doesn't reset a task that
+      // just started.
+      task.lastPulse = Date.now();
     }
   }
 

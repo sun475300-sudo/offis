@@ -178,7 +178,10 @@ export class KnowledgeGraph {
   updateNode(id: string, updates: Partial<KnowledgeNode>): boolean {
     const node = this.nodes.get(id);
     if (!node) return false;
-    Object.assign(node, updates, { updatedAt: Date.now() });
+    // Strip id so the caller can't rename the node and desync it from
+    // the Map key (which would break neighbor lookups and adjacency).
+    const { id: _ignoredId, ...safeUpdates } = updates;
+    Object.assign(node, safeUpdates, { updatedAt: Date.now() });
     return true;
   }
 

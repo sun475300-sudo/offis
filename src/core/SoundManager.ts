@@ -25,9 +25,21 @@ export class SoundManager {
       }
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      // resume() returns a promise; ignore rejection so we still hand the
+      // context back to the caller. Scheduled oscillators will play once
+      // resume settles.
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
+  }
+
+  /** Release the AudioContext. Use during teardown / hot-reload. */
+  destroy(): void {
+    if (this.ctx) {
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
+      this.masterGain = null;
+    }
   }
 
   setEnabled(enabled: boolean): void {

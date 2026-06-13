@@ -85,18 +85,21 @@ export class AgentManager {
     const candidates = this.findIdleAgentsByRole(task.requiredRole);
     if (candidates.length === 0) return null;
 
-    // Pick the closest idle agent to the task target
+    // Compute the target world position once instead of per-candidate.
+    const target = this.tilemap.gridToWorld(task.targetDesk);
+
+    // Pick the closest idle agent to the task target.
     let best: Agent | null = null;
-    let bestDist = Infinity;
+    let bestDistSq = Infinity;
 
     for (const agent of candidates) {
       const pos = agent.getPosition();
-      const target = this.tilemap.gridToWorld(task.targetDesk);
       const dx = pos.x - target.x;
       const dy = pos.y - target.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < bestDist) {
-        bestDist = dist;
+      // Compare squared distances — Math.sqrt isn't needed to find the min.
+      const distSq = dx * dx + dy * dy;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
         best = agent;
       }
     }

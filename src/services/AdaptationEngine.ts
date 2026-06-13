@@ -203,6 +203,17 @@ export class AdaptationEngine {
       estimatedImpact: actions.length * 0.1
     };
     this.activePlans.set(plan.id, plan);
+    // executePlan doesn't remove from activePlans, so naturally completed
+    // plans accumulate forever. Cap by FIFO eviction.
+    if (this.activePlans.size > 200) {
+      const dropCount = this.activePlans.size - 200;
+      const iter = this.activePlans.keys();
+      for (let i = 0; i < dropCount; i++) {
+        const k = iter.next().value;
+        if (k === undefined) break;
+        this.activePlans.delete(k);
+      }
+    }
     return plan;
   }
 

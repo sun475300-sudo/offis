@@ -98,8 +98,11 @@ export class Telemetry {
     if (this.buffer.length === 0) return;
 
     const events = this.buffer.splice(0, this.config.batchSize);
-    
-    for (const exporter of this.exporters) {
+
+    // Snapshot exporters so an addExporter/removeExporter racing with
+    // an in-flight flush can't shift iteration order or skip late
+    // additions in surprising ways.
+    for (const exporter of [...this.exporters]) {
       try {
         await exporter(events);
       } catch (e) {
@@ -130,8 +133,8 @@ export class Telemetry {
   }
 
   private notifyListeners(events: TelemetryEvent[]): void {
-    for (const listener of this.listeners) {
-      listener(events);
+    for (const listener of [...this.listeners]) {
+      try { listener(events); } catch (e) { console.error('[Telemetry] listener threw:', e); }
     }
   }
 
