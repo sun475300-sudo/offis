@@ -66,13 +66,20 @@ export class LLMService {
   private decisionHistory: { prompt: string; decision: string; timestamp: number }[] = [];
 
   constructor(config?: LLMServiceConfig) {
-    // Auto-detect API keys from Vite env variables
-    const anthropicKey = (import.meta as any).env?.VITE_ANTHROPIC_API_KEY;
-    const openaiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
-    const minimaxKey = (import.meta as any).env?.VITE_MINIMAX_API_KEY;
+    // Auto-detect API keys from Vite env variables. Trim so trailing
+    // whitespace or accidental quotes in .env don't break the
+    // Authorization header (which silently 401s).
+    const trim = (k: unknown): string | undefined => {
+      if (typeof k !== 'string') return undefined;
+      const trimmed = k.trim().replace(/^['"]|['"]$/g, '');
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
+    const anthropicKey = trim((import.meta as any).env?.VITE_ANTHROPIC_API_KEY);
+    const openaiKey = trim((import.meta as any).env?.VITE_OPENAI_API_KEY);
+    const minimaxKey = trim((import.meta as any).env?.VITE_MINIMAX_API_KEY);
 
     if (config) {
-      this.config = config;
+      this.config = { ...config, apiKey: trim(config.apiKey) };
     } else if (anthropicKey) {
       this.config = { provider: 'claude', apiKey: anthropicKey };
       console.log('[LLMService] 🟢 Auto-detected Anthropic key — using Claude API');
