@@ -14,6 +14,7 @@ export interface AgentHealth {
   lastCheck: number;
   uptime: number;
   errorCount: number;
+  registeredAt?: number;
 }
 
 export interface HealthCheckConfig {
@@ -77,7 +78,8 @@ export class HealthMonitor {
       metrics: [],
       lastCheck: 0,
       uptime: 0,
-      errorCount: 0
+      errorCount: 0,
+      registeredAt: Date.now(),
     });
   }
 
@@ -120,7 +122,10 @@ export class HealthMonitor {
     health.metrics = healthMetrics;
     health.status = hasCritical ? 'unhealthy' : hasWarning ? 'degraded' : 'healthy';
     health.lastCheck = Date.now();
-    health.uptime = Date.now() - this.startTime;
+    // Uptime should be measured from when this specific agent
+    // registered, not from when the HealthMonitor singleton started —
+    // otherwise every fresh agent inherits the singleton's age.
+    health.uptime = Date.now() - (health.registeredAt ?? this.startTime);
   }
 
   recordError(agentId: string): void {
