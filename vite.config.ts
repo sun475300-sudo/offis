@@ -17,8 +17,13 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          pixi: ['pixi.js'],
+        // Vite 8 / rolldown only accepts manualChunks as a function.
+        // The object form { pixi: ['pixi.js'] } worked under rollup but
+        // throws "manualChunks is not a function" now.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/pixi.js') || id.includes('node_modules/@pixi/')) {
+            return 'pixi';
+          }
         },
       },
     },
