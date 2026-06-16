@@ -7,8 +7,16 @@
  */
 
 const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// The icon path is referenced by the BrowserWindow options below. If
+// electron/assets/icon.png is missing (clean checkout without bundled
+// artwork), passing a non-existent path warns at runtime — fall back
+// to undefined which uses Electron's default icon.
+const iconPath = path.join(__dirname, 'assets', 'icon.png');
+const resolvedIcon = fs.existsSync(iconPath) ? iconPath : undefined;
 
 // 앱이 이미 실행 중이면 기존 창을 포커스하고 종료
 const gotTheLock = app.requestSingleInstanceLock();
@@ -36,7 +44,7 @@ function createWindow() {
       // 로컬 파일 접근 허용 (파일 첨부 기능)
       webSecurity: !isDev,
     },
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: resolvedIcon,
     show: false, // 로딩 완료 후 표시
   });
 

@@ -2,6 +2,7 @@
   "name": "offis-mas-dashboard",
   "version": "1.0.0",
   "description": "Enterprise 2D Pixel Office Multi-Agent System Control Dashboard",
+  "author": "sun475300-sudo",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
