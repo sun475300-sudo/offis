@@ -4,7 +4,10 @@
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)
 ![PixiJS](https://img.shields.io/badge/PixiJS-7.3-e72264?logo=webgl)
-![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite)
+![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite)
+![Electron](https://img.shields.io/badge/Electron-39-47848F?logo=electron)
+![Tests](https://img.shields.io/badge/tests-72%20passing-3fb950)
+![Security](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-3fb950)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Overview
@@ -201,20 +204,55 @@ Open `http://localhost:5173` (dev) or `http://localhost:4173` (preview).
 |-------|-----------|
 | Rendering | PixiJS 7.3 (WebGL 2D) |
 | Language | TypeScript 5.9 (strict mode) |
-| Build | Vite 5.4 with code splitting |
+| Build | Vite 8 (rolldown bundler) with manual chunk splitting |
+| Desktop | Electron 39 + electron-builder 26 (Win/Mac/Linux) |
+| Tests | Vitest 4.1 (72 unit tests, regression coverage for bug-sweep fixes) |
 | Persistence | IndexedDB + localStorage |
 | Styling | Pure CSS (no framework) |
 
 ## Build Output
 
 ```
-dist/index.html           13.57 kB (gzip: 3.25 kB)
-dist/assets/index.css     22.48 kB (gzip: 4.37 kB)
-dist/assets/index.js     186.54 kB (gzip: 58.70 kB)
-dist/assets/pixi.js      472.20 kB (gzip: 142.34 kB)
+dist/index.html                    18.54 kB (gzip:  4.11 kB)
+dist/assets/index-*.css            27.37 kB (gzip:  5.43 kB)
+dist/assets/rolldown-runtime-*.js   0.56 kB (gzip:  0.36 kB)
+dist/assets/index-*.js            152.15 kB (gzip: 47.79 kB)
+dist/assets/pixi-*.js             464.34 kB (gzip:138.96 kB)
 ```
 
-Total gzip: **~208 kB** — loads in under 1 second on broadband.
+Total gzip: **~197 kB** — loads in under 1 second on broadband.
+
+## Scripts
+
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Vite dev server at http://localhost:3000 |
+| `npm run build` | `tsc && vite build` — produces `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm test` | Run the Vitest suite once |
+| `npm run test:watch` | Watch mode |
+| `npm run test:coverage` | Run with @vitest/coverage-v8 |
+| `npm run electron:dev` | Vite dev server + Electron (concurrently) |
+| `npm run electron:build` | Production build + electron-builder packaging |
+| `npm run electron:preview` | Run the built app under Electron |
+
+## Quality
+
+This repository has been through a multi-round code-review / bug-sweep pass.
+
+- **Tests:** 72 / 72 passing (`npx vitest run`).
+- **TypeScript:** strict, `tsc --noEmit` clean.
+- **Security:** `npm audit` reports **0 vulnerabilities**.
+- **Build:** Vite 8 + rolldown bundler. The `manualChunks` config uses
+  the new function form required by rolldown.
+- **Electron packaging:** verified end-to-end with
+  `npx electron-builder --linux --dir`, producing a working
+  `release/linux-unpacked/offis-mas-dashboard` ELF executable.
+- **Bug-fix history:** see commit log for ~150 targeted fixes covering
+  memory caps, listener-fan-out isolation, snapshot-during-iteration,
+  state-machine watchdogs, validation of persisted JSON, race fixes
+  for setTimeout/setInterval cleanup, and regression tests for the
+  bug patterns above.
 
 ## Agent Roles
 

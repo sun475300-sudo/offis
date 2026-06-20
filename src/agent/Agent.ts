@@ -176,7 +176,11 @@ export class Agent {
 
     // Process work progress
     if (this.state === AgentState.Working && this.currentTask) {
-      const workRate = 1.0 / this.currentTask.estimatedDuration;
+      // Guard against estimatedDuration <= 0 — otherwise workRate is
+      // Infinity (or NaN) and progress jumps to 1.0 in a single frame,
+      // emitting AgentFinishedWork before any visible work happens.
+      const duration = this.currentTask.estimatedDuration;
+      const workRate = duration > 0 ? 1.0 / duration : 1.0;
       this.progress = Math.min(1.0, this.progress + workRate * deltaTime);
 
       if (this.progress >= 1.0) {

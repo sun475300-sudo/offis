@@ -199,8 +199,17 @@ function registerTestCommands(ctx: CLIContext): void {
     description: 'Run stress test on the system',
     usage: '/test [agents] [concurrent] [duration]',
     handler: async (args) => {
-      const agentTarget = parseInt(args[0]) || 30;
-      const taskCount = parseInt(args[1]) || 50;
+      // Use the parsed value if it's a finite non-negative number; only
+      // fall back to the default when the arg is absent or non-numeric.
+      // The previous `parseInt(...) || 30` ate any legitimate "0" as
+      // falsy and silently substituted 30.
+      const parseArg = (raw: string | undefined, fallback: number): number => {
+        if (raw === undefined) return fallback;
+        const n = parseInt(raw, 10);
+        return Number.isFinite(n) && n >= 0 ? n : fallback;
+      };
+      const agentTarget = parseArg(args[0], 30);
+      const taskCount = parseArg(args[1], 50);
       
       logSystem(`🔧 시각적 부하 테스트 시작: 목표 에이전트 ${agentTarget}명, 작업 ${taskCount}개`, 'system');
       toastManager.info('Stress Test', `시각적 부하 테스트 스폰 중...`);
