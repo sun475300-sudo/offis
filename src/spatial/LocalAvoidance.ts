@@ -53,22 +53,31 @@ export class LocalAvoidance {
   }
 
   /**
-   * Check if two agents are about to collide head-on in a corridor.
-   * If so, one yields by stepping aside.
+   * Check whether agentA should yield to agentB because the two are
+   * about to collide head-on in a corridor. Deterministic tie-break:
+   * the agent with the lexicographically HIGHER id yields.
    */
   shouldYield(agentA: AgentSnapshot, agentB: AgentSnapshot): boolean {
-    // Lower ID yields (deterministic tie-breaking)
     if (agentA.state !== 'moving' || agentB.state !== 'moving') return false;
 
     const dx = agentB.position.x - agentA.position.x;
     const dy = agentB.position.y - agentA.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const distSq = dx * dx + dy * dy;
+    const radius = this.avoidanceRadius * 1.5;
+    if (distSq > radius * radius) return false;
 
-    if (dist > this.avoidanceRadius * 1.5) return false;
-
-    // Dot product of movement directions — if negative, they're heading toward each other
     if (agentA.path.length === 0 || agentB.path.length === 0) return false;
 
-    return agentA.id > agentB.id; // deterministic: higher-id agent yields
+    // Actually compute the dot product of A's and B's intended next-step
+    // vectors. The earlier code had a comment promising this check but
+    // fell straight through to the id tie-break, so agents yielded even
+    // when moving in the same direction or perpendicular.
+    const aDx = agentA.path[0].col - agentA.gridCell.col;
+    const aDy = agentA.path[0].row - agentA.gridCell.row;
+    const bDx = agentB.path[0].col - agentB.gridCell.col;
+    const bDy = agentB.path[0].row - agentB.gridCell.row;
+    if (aDx * bDx + aDy * bDy >= 0) return false;
+
+    return agentA.id > agentB.id;
   }
 }

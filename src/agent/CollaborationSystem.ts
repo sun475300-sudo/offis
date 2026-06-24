@@ -92,9 +92,11 @@ export class CollaborationSystem {
     this.activeMeetings.set(meetingId, meeting);
 
     // Assign meeting tasks to each participant
-    for (const agent of agents) {
+    // Use the natural index from the loop instead of agents.indexOf(agent)
+    // which scans the array on each iteration (O(n^2) for the round).
+    for (let idx = 0; idx < agents.length; idx++) {
+      const agent = agents[idx];
       // Offset positions around the table
-      const idx = agents.indexOf(agent);
       const offset: GridCell = {
         col: room.col + (idx % 3) - 1,
         row: room.row + Math.floor(idx / 3),
