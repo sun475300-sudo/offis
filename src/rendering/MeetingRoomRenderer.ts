@@ -10,7 +10,7 @@ export interface MeetingRoom {
   isActive: boolean;
   glowGraphics?: PIXI.Graphics;
   labelText?: PIXI.Text;
-  pulseRing?: PIXI.Graphics;
+  pulseRing?: PIXI.Sprite;
   bubbles?: PIXI.Container[];
 }
 
@@ -26,11 +26,42 @@ export class MeetingRoomRenderer {
   private rooms: Map<string, MeetingRoom> = new Map();
   private time: number = 0;
   private bubbleTimer: number = 0;
+  private renderer: PIXI.IRenderer | null;
+  private ringTexture: PIXI.Texture | null = null;
 
-  constructor(parent: PIXI.Container) {
+  constructor(parent: PIXI.Container, renderer?: PIXI.IRenderer) {
     this.container = new PIXI.Container();
     this.container.zIndex = 10;
     parent.addChild(this.container);
+    this.renderer = renderer ?? null;
+  }
+
+  /**
+   * Bake the pulse ring stroke into a RenderTexture once. Every room reuses
+   * the same texture — animation comes from per-frame scale + alpha writes,
+   * which ParticleContainer / Sprite both handle on the GPU without any
+   * Graphics command-buffer rewrites.
+   */
+  private getRingTexture(): PIXI.Texture {
+    if (this.ringTexture) return this.ringTexture;
+    const size = 120;
+    const gfx = new PIXI.Graphics();
+    gfx.lineStyle(4, 0xffffff, 1);
+    gfx.drawCircle(size / 2, size / 2, size / 2 - 3);
+    // Inner softer ring gives the pulse a glow halo when scaled up.
+    gfx.lineStyle(8, 0xffffff, 0.35);
+    gfx.drawCircle(size / 2, size / 2, size / 2 - 8);
+
+    if (this.renderer) {
+      const rt = PIXI.RenderTexture.create({ width: size, height: size, resolution: 2 });
+      this.renderer.render(gfx, { renderTexture: rt });
+      gfx.destroy();
+      this.ringTexture = rt;
+    } else {
+      this.ringTexture = (gfx as any).generateCanvasTexture?.() ?? PIXI.Texture.WHITE;
+      gfx.destroy();
+    }
+    return this.ringTexture!;
   }
 
   /** Register a meeting room at a given tile coordinate */
@@ -52,10 +83,14 @@ export class MeetingRoomRenderer {
     const y = room.location.row * TILE_SIZE;
 
     // --- Pulse ring (behind everything) ---
-    const ring = new PIXI.Graphics();
+    // Use a baked-once texture so each frame only updates scale + alpha;
+    // the GPU samples one quad per ring instead of replaying drawCircle().
+    const ring = new PIXI.Sprite(this.getRingTexture());
+    ring.anchor.set(0.5);
     ring.x = x + TILE_SIZE * 2;
     ring.y = y + TILE_SIZE * 1.5;
     ring.alpha = 0;
+    ring.tint = 0x58A6FF;
     this.container.addChild(ring);
     room.pulseRing = ring;
 
@@ -236,14 +271,16 @@ export class MeetingRoomRenderer {
         room.glowGraphics.alpha = 0.8 + Math.sin(this.time * 2.5) * 0.2;
       }
 
-      // Pulse ring animation
+      // Pulse ring animation — only scale + alpha; no Graphics rebuild.
       if (room.pulseRing) {
-        const scale = 1 + (this.time % 2) * 0.4;
-        const alpha = Math.max(0, 0.5 - (this.time % 2) * 0.25);
-        room.pulseRing.clear();
-        room.pulseRing.lineStyle(2, 0x58A6FF, alpha);
-        room.pulseRing.drawCircle(0, 0, 30 * scale);
-        room.pulseRing.alpha = alpha;
+        const phase = this.time % 2;
+        // Original look: radius 30 → 30*1.8 with alpha 0.5 → 0.
+        // Texture is 120px wide drawn around radius ~57, so map to keep parity.
+        const targetRadiusPx = 30 * (1 + phase * 0.4);
+        const baseRadiusPx = 60;
+        const s = targetRadiusPx / baseRadiusPx;
+        room.pulseRing.scale.set(s, s);
+        room.pulseRing.alpha = Math.max(0, 0.5 - phase * 0.25);
       }
 
       // Spawn new speech bubble every 4 seconds per room
@@ -276,6 +313,11 @@ export class MeetingRoomRenderer {
     }
     this.rooms.clear();
     this.container.removeChildren();
+    // Ring texture is shared across rooms; only release on full teardown.
+    if (this.ringTexture && this.ringTexture !== PIXI.Texture.WHITE) {
+      this.ringTexture.destroy(true);
+      this.ringTexture = null;
+    }
   }
 
   getRoomCount(): number { return this.rooms.size; }

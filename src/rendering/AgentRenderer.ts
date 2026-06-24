@@ -23,7 +23,7 @@ interface AgentVisual {
   nameLabel: PIXI.Text;
   roleLabel: PIXI.Text;
   roleBadgeBg: PIXI.Graphics;
-  statusIndicator: PIXI.Graphics;
+  statusIndicator: PIXI.Sprite;
   speechBubble: PIXI.Container;
   speechText: PIXI.Text;
   progressBar: PIXI.Graphics;
@@ -74,9 +74,47 @@ const HAIR_COLORS = [0x2C1B0E, 0x4A3222, 0x8B6914, 0xD4A017, 0xC04000, 0x1A1A2E]
 export class AgentRenderer {
   private parentContainer: PIXI.Container;
   private agentVisuals: Map<string, AgentVisual> = new Map();
+  private renderer: PIXI.IRenderer | null;
+  private statusGlowTexture: PIXI.Texture | null = null;
 
-  constructor(parentContainer: PIXI.Container) {
+  constructor(parentContainer: PIXI.Container, renderer?: PIXI.IRenderer) {
     this.parentContainer = parentContainer;
+    this.renderer = renderer ?? null;
+  }
+
+  /**
+   * Bake a single glow texture (white core + soft halo) that every status
+   * indicator reuses. The state color is applied via per-sprite tint, and
+   * the breathing pulse is a per-frame alpha write — so the GPU never sees
+   * a Graphics command-buffer change for the 32-agent status dot layer.
+   */
+  private getStatusGlowTexture(): PIXI.Texture {
+    if (this.statusGlowTexture) return this.statusGlowTexture;
+    const size = 32;
+    const gfx = new PIXI.Graphics();
+    // Outer halo
+    gfx.beginFill(0xffffff, 0.3);
+    gfx.drawCircle(size / 2, size / 2, 10);
+    gfx.endFill();
+    // Mid glow
+    gfx.beginFill(0xffffff, 0.65);
+    gfx.drawCircle(size / 2, size / 2, 7);
+    gfx.endFill();
+    // Crisp core
+    gfx.beginFill(0xffffff, 1);
+    gfx.drawCircle(size / 2, size / 2, 4);
+    gfx.endFill();
+
+    if (this.renderer) {
+      const rt = PIXI.RenderTexture.create({ width: size, height: size, resolution: 2 });
+      this.renderer.render(gfx, { renderTexture: rt });
+      gfx.destroy();
+      this.statusGlowTexture = rt;
+    } else {
+      this.statusGlowTexture = (gfx as any).generateCanvasTexture?.() ?? PIXI.Texture.WHITE;
+      gfx.destroy();
+    }
+    return this.statusGlowTexture!;
   }
 
   /** Sync all agent visuals with current snapshots */
@@ -158,10 +196,16 @@ export class AgentRenderer {
     roleLabel.zIndex = 4;
     container.addChild(roleLabel);
 
-    // Status indicator dot
-    const statusIndicator = new PIXI.Graphics();
+    // Status indicator dot — tinted sprite from a baked glow texture.
+    // Every agent reuses the same baseTexture so PIXI batches the layer
+    // into a single GPU draw call. Per-frame work is just tint + alpha.
+    const statusIndicator = new PIXI.Sprite(this.getStatusGlowTexture());
+    statusIndicator.anchor.set(0.5);
     statusIndicator.position.set(TILE_SIZE * 0.3, -TILE_SIZE * 0.3);
     statusIndicator.zIndex = 4;
+    // Texture halo spans ~20px; scale down so the on-screen size matches the
+    // original ~10px halo + 6px core drawn by the prior Graphics path.
+    statusIndicator.scale.set(0.4);
     container.addChild(statusIndicator);
 
     // Speech bubble (hidden by default)
@@ -308,22 +352,12 @@ export class AgentRenderer {
     visual.shadow.drawEllipse(0, TILE_SIZE * 0.4, 8 * shadowScaleX, 3);
     visual.shadow.endFill();
 
-    // Status indicator with glow
-    visual.statusIndicator.clear();
+    // Status indicator: state color is just a GPU tint write, alpha pulse
+    // is a single uniform update. No geometry rebuild per frame.
     const stateColor = STATE_COLORS[snap.state];
-    // Glow ring
-    visual.statusIndicator.beginFill(stateColor, 0.3);
-    visual.statusIndicator.drawCircle(0, 0, 5);
-    visual.statusIndicator.endFill();
-    // Core dot
-    visual.statusIndicator.beginFill(stateColor);
-    visual.statusIndicator.drawCircle(0, 0, 3);
-    visual.statusIndicator.endFill();
-
-    // Pulse for working/collaborating
+    visual.statusIndicator.tint = stateColor;
     if (snap.state === AgentState.Working || snap.state === AgentState.Collaborating) {
-      const pulse = 0.85 + Math.sin(Date.now() * 0.004) * 0.15;
-      visual.statusIndicator.alpha = pulse;
+      visual.statusIndicator.alpha = 0.85 + Math.sin(Date.now() * 0.004) * 0.15;
     } else {
       visual.statusIndicator.alpha = 1;
     }
