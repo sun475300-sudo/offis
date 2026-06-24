@@ -138,16 +138,16 @@ export class PixelOfficeApp {
     this.app.stage.addChild(this.rootContainer);
 
     this.camera = new CameraController(this.rootContainer, w, h);
-    this.tilemapRenderer = new TilemapRenderer(this.rootContainer);
-    this.agentRenderer = new AgentRenderer(this.rootContainer);
-    this.particleSystem = new ParticleSystem(this.rootContainer);
+    this.tilemapRenderer = new TilemapRenderer(this.rootContainer, this.app.renderer);
+    this.agentRenderer = new AgentRenderer(this.rootContainer, this.app.renderer);
+    this.particleSystem = new ParticleSystem(this.rootContainer, this.app.renderer);
     this.speechBubbleRenderer = new SpeechBubbleRenderer(this.rootContainer);
     this.taskProgressRenderer = new TaskProgressRenderer(this.rootContainer);
 
     this.tilemapRenderer.renderMap(this.tilemap);
 
     // Meeting rooms — registered at map tile coordinates
-    this.meetingRoomRenderer = new MeetingRoomRenderer(this.rootContainer);
+    this.meetingRoomRenderer = new MeetingRoomRenderer(this.rootContainer, this.app.renderer);
     // Conference area at tile (12, 3), smaller room at (24, 3)
     this.meetingRoomRenderer.addMeetingRoom('main-conf', { col: 12, row: 3 });
     this.meetingRoomRenderer.addMeetingRoom('video-room', { col: 24, row: 3 });

@@ -36,10 +36,14 @@ const ROOM_ZONES: RoomZone[] = [
 export class TilemapRenderer {
   private container: PIXI.Container;
   private labelsContainer: PIXI.Container;
+  private renderer: PIXI.IRenderer | null;
+  private bakedTexture: PIXI.RenderTexture | null = null;
+  private bakedSprite: PIXI.Sprite | null = null;
 
-  constructor(parentContainer: PIXI.Container) {
+  constructor(parentContainer: PIXI.Container, renderer?: PIXI.IRenderer) {
     this.container = new PIXI.Container();
     this.labelsContainer = new PIXI.Container();
+    this.renderer = renderer ?? null;
     parentContainer.addChild(this.container);
     parentContainer.addChild(this.labelsContainer);
   }
@@ -53,6 +57,11 @@ export class TilemapRenderer {
     for (const child of [...this.labelsContainer.children]) child.destroy({ children: true });
     this.container.removeChildren();
     this.labelsContainer.removeChildren();
+    if (this.bakedTexture) {
+      this.bakedTexture.destroy(true);
+      this.bakedTexture = null;
+      this.bakedSprite = null;
+    }
 
     const width = tilemap.getWidth();
     const height = tilemap.getHeight();
@@ -150,6 +159,53 @@ export class TilemapRenderer {
 
     // Render room zone labels
     this.renderRoomLabels();
+
+    // GPU bake: flatten the static tile + label graphics into a single
+    // RenderTexture and replace the per-frame command stream with a single
+    // textured-quad draw. The Graphics objects are still useful here as a
+    // source — we render *into* the RenderTexture once and then discard
+    // the source geometry. After this, every frame the GPU samples one
+    // big tilemap texture instead of replaying thousands of drawRects.
+    this.bakeToTexture(tilemap);
+  }
+
+  /**
+   * Bake this.container + this.labelsContainer into one RenderTexture and
+   * swap them out for a single Sprite. No-op when no renderer was passed in
+   * (headless / vitest paths) — the Graphics fallback still renders fine.
+   */
+  private bakeToTexture(tilemap: Tilemap): void {
+    if (!this.renderer) return;
+
+    const width = tilemap.getWidth() * TILE_SIZE;
+    const height = tilemap.getHeight() * TILE_SIZE;
+    const resolution = Math.min(window.devicePixelRatio || 1, 2);
+
+    const rt = PIXI.RenderTexture.create({ width, height, resolution });
+    // Use LINEAR so room labels and antialiased grid lines stay smooth
+    // under camera zoom.
+    rt.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
+
+    // Render both containers (tiles + labels) into the same RenderTexture.
+    // We render the tiles first, then labels, so labels stack on top exactly
+    // like the live container ordering.
+    const flat = new PIXI.Container();
+    while (this.container.children.length) {
+      flat.addChild(this.container.children[0]);
+    }
+    while (this.labelsContainer.children.length) {
+      flat.addChild(this.labelsContainer.children[0]);
+    }
+    this.renderer.render(flat, { renderTexture: rt });
+    // Source Graphics/Text are no longer needed — texture has captured them.
+    flat.destroy({ children: true });
+
+    const sprite = new PIXI.Sprite(rt);
+    // The RenderTexture's resolution-scaled size needs no extra scaling here;
+    // Sprite renders at the texture's logical (CSS-pixel) dimensions.
+    this.container.addChild(sprite);
+    this.bakedTexture = rt;
+    this.bakedSprite = sprite;
   }
 
   /** Draw room zone labels on the map */
