@@ -13,6 +13,13 @@ interface AnimState {
   typingTimer: number;
   idleTimer: number;      // accumulator for idle bob
   collabTimer: number;    // accumulator for collab wave
+  /** Cache key — if unchanged across frames, body geometry is skipped.
+   *  Idle bob is applied via body.y translate so it does NOT bust the cache. */
+  lastBodyKey: string;
+  /** Shadow only changes when isMoving toggles. */
+  lastShadowMoving: boolean | null;
+  /** Round progress to 1% steps to avoid rebuilding the bar every frame. */
+  lastProgressBucket: number;
 }
 
 /** Renders individual agent sprites with state-based visuals */
@@ -267,6 +274,9 @@ export class AgentRenderer {
       typingTimer: 0,
       idleTimer: Math.random() * Math.PI * 2, // offset so agents don't breathe in sync
       collabTimer: 0,
+      lastBodyKey: '',
+      lastShadowMoving: null,
+      lastProgressBucket: -1,
     };
 
     return {
@@ -327,30 +337,44 @@ export class AgentRenderer {
     // Position
     visual.container.position.set(snap.position.x, snap.position.y);
 
-    // Idle breathing bob
+    // Idle breathing bob — applied as a cheap container translate so the
+    // body geometry cache stays valid across the sinusoidal motion.
     let bodyOffsetY = 0;
     if (snap.state === AgentState.Idle) {
       bodyOffsetY = Math.sin(anim.idleTimer * 2) * 1.0;
     } else if (snap.state === AgentState.Waiting) {
       bodyOffsetY = Math.sin(anim.idleTimer * 1.5) * 1.5;
     }
+    visual.body.y = bodyOffsetY;
 
-    // Redraw body with animations
-    visual.body.clear();
-    this.drawAnimatedCharacter(
-      visual.body,
-      snap.role,
-      snap.state,
-      anim,
-      bodyOffsetY,
-    );
+    // Dirty-flag check: only rebuild body geometry when one of the inputs
+    // that actually affects the drawn rects has changed (walk frame ticked,
+    // typing frame ticked, state changed, facing flipped, or — for the
+    // Waiting blink overlay — the blink window crossed).
+    const blinkActive = snap.state === AgentState.Waiting
+      && Math.sin(anim.idleTimer * 3) > 0.95;
+    const bodyKey = `${snap.state}|${anim.walkFrame}|${anim.typingFrame}|`
+      + `${anim.facingRight ? 1 : 0}|${blinkActive ? 1 : 0}|${snap.role}|`
+      + `${snap.state === AgentState.Collaborating
+        ? Math.floor(anim.collabTimer * 10) // wave Y phase
+        : 0}`;
+    if (bodyKey !== anim.lastBodyKey) {
+      visual.body.clear();
+      this.drawAnimatedCharacter(visual.body, snap.role, snap.state, anim);
+      anim.lastBodyKey = bodyKey;
+    }
 
-    // Shadow squash when moving
-    visual.shadow.clear();
-    const shadowScaleX = isMoving ? 1.1 : 1.0;
-    visual.shadow.beginFill(0x000000, 0.15);
-    visual.shadow.drawEllipse(0, TILE_SIZE * 0.4, 8 * shadowScaleX, 3);
-    visual.shadow.endFill();
+    // Shadow only changes geometry when isMoving toggles. The squash is
+    // achieved by a one-shot Graphics build per state change, not a
+    // per-frame clear+drawEllipse.
+    if (anim.lastShadowMoving !== isMoving) {
+      visual.shadow.clear();
+      const shadowScaleX = isMoving ? 1.1 : 1.0;
+      visual.shadow.beginFill(0x000000, 0.15);
+      visual.shadow.drawEllipse(0, TILE_SIZE * 0.4, 8 * shadowScaleX, 3);
+      visual.shadow.endFill();
+      anim.lastShadowMoving = isMoving;
+    }
 
     // Status indicator: state color is just a GPU tint write, alpha pulse
     // is a single uniform update. No geometry rebuild per frame.
@@ -375,35 +399,44 @@ export class AgentRenderer {
       visual.speechBubble.visible = false;
     }
 
-    // Progress bar with color gradient
+    // Progress bar with color gradient — rebuild only on bucket change.
     if (snap.state === AgentState.Working && snap.progress > 0) {
       const barWidth = 28;
       const barHeight = 4;
-      const barY = -TILE_SIZE * 0.55 + bodyOffsetY;
+      const barY = -TILE_SIZE * 0.55;
 
-      visual.progressBg.visible = true;
-      visual.progressBg.clear();
-      visual.progressBg.beginFill(0x1A1A2E);
-      visual.progressBg.lineStyle(1, 0x333333);
-      visual.progressBg.drawRoundedRect(-barWidth / 2, barY, barWidth, barHeight, 2);
-      visual.progressBg.endFill();
+      // Bob is applied via container y offset, not baked geometry.
+      visual.progressBg.y = bodyOffsetY;
+      visual.progressBar.y = bodyOffsetY;
 
-      visual.progressBar.visible = true;
-      visual.progressBar.clear();
-      // Color shifts from yellow to green as progress increases
-      const progressColor = snap.progress < 0.5 ? 0xFFAA00 : 0x00FF88;
-      visual.progressBar.beginFill(progressColor);
-      visual.progressBar.drawRoundedRect(
-        -barWidth / 2 + 1,
-        barY + 1,
-        Math.max(0, (barWidth - 2) * snap.progress),
-        barHeight - 2,
-        1,
-      );
-      visual.progressBar.endFill();
+      const bucket = Math.round(snap.progress * 100);
+      if (bucket !== anim.lastProgressBucket) {
+        visual.progressBg.visible = true;
+        visual.progressBg.clear();
+        visual.progressBg.beginFill(0x1A1A2E);
+        visual.progressBg.lineStyle(1, 0x333333);
+        visual.progressBg.drawRoundedRect(-barWidth / 2, barY, barWidth, barHeight, 2);
+        visual.progressBg.endFill();
+
+        visual.progressBar.visible = true;
+        visual.progressBar.clear();
+        // Color shifts from yellow to green as progress increases
+        const progressColor = snap.progress < 0.5 ? 0xFFAA00 : 0x00FF88;
+        visual.progressBar.beginFill(progressColor);
+        visual.progressBar.drawRoundedRect(
+          -barWidth / 2 + 1,
+          barY + 1,
+          Math.max(0, (barWidth - 2) * snap.progress),
+          barHeight - 2,
+          1,
+        );
+        visual.progressBar.endFill();
+        anim.lastProgressBucket = bucket;
+      }
     } else {
-      visual.progressBg.visible = false;
-      visual.progressBar.visible = false;
+      if (visual.progressBg.visible) visual.progressBg.visible = false;
+      if (visual.progressBar.visible) visual.progressBar.visible = false;
+      anim.lastProgressBucket = -1;
     }
 
     // Path visualization (subtle dashed line with dots)
@@ -426,18 +459,20 @@ export class AgentRenderer {
     }
   }
 
-  /** Draw animated pixel character with walk/work/idle/collab states */
+  /** Draw animated pixel character with walk/work/idle/collab states.
+   *  Idle bob translation is applied at the body.y level by the caller, so
+   *  this function emits geometry relative to a static origin and stays
+   *  cacheable across the breathing animation. */
   private drawAnimatedCharacter(
     gfx: PIXI.Graphics,
     role: string,
     state: AgentState,
     anim: AnimState,
-    bodyOffsetY: number,
   ): void {
     const s = 2; // pixel scale
     const flip = anim.facingRight ? 1 : -1;
     const ox = -s * 4;
-    const oy = -s * 5 + bodyOffsetY;
+    const oy = -s * 5;
 
     // Deterministic appearance from role string
     const roleHash = this.hashString(role);
